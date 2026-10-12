@@ -1,0 +1,21 @@
+# dependencies / build output
+node_modules/
+outputs/
+.wrangler/
+.astro/
+.DS_Store
+
+# local scratch + secrets — only the processed product images are kept,
+# because site/build.mjs needs work/images/webp to generate the shop pages.
+/work/*
+!/work/.build-state.json
+!/work/images/
+
+/work/images/*
+!/work/images/webp/
+
+# deployed through Cloudflare (contains the admin password) — not versioned
+wrangler.toml
+
+# scratch HTML snapshots at the repo root
+/work_*

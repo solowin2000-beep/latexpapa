@@ -1,0 +1,214 @@
+{
+  "generated": [
+    {
+      "base": "Women's Latex Spaghetti Strap Dress / One-piece",
+      "count": 10,
+      "ids": [
+        "lp-003",
+        "lp-072",
+        "lp-074",
+        "lp-077",
+        "lp-079",
+        "lp-082",
+        "lp-087",
+        "lp-088",
+        "lp-089",
+        "lp-097"
+      ]
+    },
+    {
+      "base": "Latex Hood / Mask",
+      "count": 11,
+      "ids": [
+        "lp-004",
+        "lp-017",
+        "lp-018",
+        "lp-019",
+        "lp-020",
+        "lp-024",
+        "lp-025",
+        "lp-032",
+        "lp-033",
+        "lp-034",
+        "lp-061"
+      ]
+    },
+    {
+      "base": "Men's Latex Catsuit / Bodysuit",
+      "count": 2,
+      "ids": [
+        "lp-007",
+        "lp-078"
+      ]
+    },
+    {
+      "base": "Women's Latex Catsuit / Bodysuit / Swimsuit",
+      "count": 6,
+      "ids": [
+        "lp-008",
+        "lp-049",
+        "lp-051",
+        "lp-052",
+        "lp-062",
+        "lp-102"
+      ]
+    },
+    {
+      "base": "Latex Hood / Mask with Cat Ear",
+      "count": 3,
+      "ids": [
+        "lp-022",
+        "lp-023",
+        "lp-028"
+      ]
+    },
+    {
+      "base": "Latex Hood / Mask with Wig Ponytail",
+      "count": 3,
+      "ids": [
+        "lp-027",
+        "lp-095",
+        "lp-096"
+      ]
+    },
+    {
+      "base": "Latex Hood with Eyes&Face Mask",
+      "count": 3,
+      "ids": [
+        "lp-035",
+        "lp-036",
+        "lp-037"
+      ]
+    },
+    {
+      "base": "Latex Lace Thigh-high / Over-the-knee Stockings",
+      "count": 2,
+      "ids": [
+        "lp-042",
+        "lp-043"
+      ]
+    },
+    {
+      "base": "Women's Latex Catsuit / Bodysuit with Front Zipper",
+      "count": 2,
+      "ids": [
+        "lp-046",
+        "lp-048"
+      ]
+    },
+    {
+      "base": "Women's Latex Catsuit / Bodysuit",
+      "count": 12,
+      "ids": [
+        "lp-047",
+        "lp-054",
+        "lp-055",
+        "lp-059",
+        "lp-060",
+        "lp-063",
+        "lp-064",
+        "lp-065",
+        "lp-066",
+        "lp-068",
+        "lp-069",
+        "lp-086"
+      ]
+    },
+    {
+      "base": "Women's Latex Catsuit / Bodysuit with Crotch Zipper",
+      "count": 2,
+      "ids": [
+        "lp-050",
+        "lp-067"
+      ]
+    },
+    {
+      "base": "Women's Latex Color-Block Catsuit / Bodysuit / Swimsuit",
+      "count": 2,
+      "ids": [
+        "lp-056",
+        "lp-101"
+      ]
+    },
+    {
+      "base": "Women's Latex Asymmetrical Mini Skirt",
+      "count": 2,
+      "ids": [
+        "lp-092",
+        "lp-093"
+      ]
+    },
+    {
+      "base": "Latex Gloves",
+      "count": 2,
+      "ids": [
+        "lp-098",
+        "lp-100"
+      ]
+    }
+  ],
+  "assignments": {
+    "lp-003": "Aurelia",
+    "lp-072": "Vesper",
+    "lp-074": "Nyx",
+    "lp-077": "Sable",
+    "lp-079": "Onyx",
+    "lp-082": "Lumen",
+    "lp-087": "Verity",
+    "lp-088": "Kestrel",
+    "lp-089": "Mireille",
+    "lp-097": "Selene",
+    "lp-004": "Corvus",
+    "lp-017": "Ilaria",
+    "lp-018": "Ravenna",
+    "lp-019": "Solene",
+    "lp-020": "Thalia",
+    "lp-024": "Isolde",
+    "lp-025": "Marlowe",
+    "lp-032": "Cerys",
+    "lp-033": "Vanya",
+    "lp-034": "Lior",
+    "lp-061": "Sabine",
+    "lp-007": "Alaric",
+    "lp-078": "Nocturne",
+    "lp-008": "Perrin",
+    "lp-049": "Calyx",
+    "lp-051": "Oriane",
+    "lp-052": "Sylvaine",
+    "lp-062": "Rowan",
+    "lp-102": "Elysia",
+    "lp-022": "Morrigan",
+    "lp-023": "Tavian",
+    "lp-028": "Lucan",
+    "lp-027": "Seraphine",
+    "lp-095": "Vale",
+    "lp-096": "Orinthia",
+    "lp-035": "Dax",
+    "lp-036": "Bellamy",
+    "lp-037": "Cressida",
+    "lp-042": "Delphine",
+    "lp-043": "Ember",
+    "lp-046": "Fenrir",
+    "lp-048": "Gwendolyn",
+    "lp-047": "Halcyon",
+    "lp-054": "Ivoire",
+    "lp-055": "Juniper",
+    "lp-059": "Kaelen",
+    "lp-060": "Lorelei",
+    "lp-063": "Maelis",
+    "lp-064": "Nerissa",
+    "lp-065": "Oberon",
+    "lp-066": "Perdita",
+    "lp-068": "Quillon",
+    "lp-069": "Rhea",
+    "lp-086": "Soren",
+    "lp-050": "Tamsin",
+    "lp-067": "Ulric",
+    "lp-056": "Vienne",
+    "lp-101": "Wren",
+    "lp-092": "Xanthe",
+    "lp-093": "Yseult",
+    "lp-098": "Zora",
+    "lp-100": "Amaris"
+  }
+}

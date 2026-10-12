@@ -1,0 +1,10 @@
+name = "latexpapa"
+compatibility_date = "2026-09-30"
+pages_build_output_dir = "outputs/site"
+
+[vars]
+ADMIN_PASSWORD = "<set as a secret in the Cloudflare dashboard>"
+
+[[kv_namespaces]]
+binding = "LATEXPAPA_DATA"
+id = "a368e089a7174345abd15c267ab3440b"

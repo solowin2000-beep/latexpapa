@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LatexPapa admin</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="/assets/style.css">
+<style>
+.adm{max-width:900px;margin:0 auto;padding:28px 20px 80px}
+.adm h1{font-size:1.7rem}
+.fld{display:block;margin:0 0 16px}
+.fld span{display:block;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.fld input,.fld select,.fld textarea{width:100%;background:#101013;border:1px solid var(--line2);color:var(--ink);border-radius:10px;padding:11px 13px;font:inherit;font-size:.95rem}
+.fld textarea{min-height:120px;font-family:ui-monospace,Consolas,monospace;font-size:.86rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.row2{grid-template-columns:1fr}}
+.drop{border:1px dashed var(--line2);border-radius:12px;padding:22px;text-align:center;color:var(--muted);cursor:pointer;transition:.2s}
+.drop.hot{border-color:var(--accent);background:rgba(216,32,63,.06);color:var(--ink)}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;margin-top:14px}
+.shot{position:relative;aspect-ratio:1/1;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#101013}
+.shot img{width:100%;height:100%;object-fit:cover}
+.shot b{position:absolute;left:5px;top:5px;background:rgba(10,10,11,.8);border:1px solid var(--line2);border-radius:100px;font-size:.65rem;padding:2px 7px;font-weight:600}
+.shot button{position:absolute;right:5px;top:5px;background:rgba(10,10,11,.8);border:1px solid var(--line2);color:#fff;border-radius:100px;width:24px;height:24px;cursor:pointer;line-height:1}
+.list{border-top:1px solid var(--line);margin-top:10px}
+.it{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.it img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex:none;background:#101013}
+.it .meta{flex:1;min-width:0}
+.it .meta b{display:block;font-weight:500;font-size:.94rem}
+.it .meta span{font-size:.8rem;color:var(--muted)}
+.msg{padding:11px 14px;border-radius:10px;margin:0 0 16px;font-size:.9rem;display:none}
+.msg.ok{display:block;background:rgba(48,180,110,.12);border:1px solid rgba(48,180,110,.4);color:#8ee6b4}
+.msg.bad{display:block;background:rgba(216,32,63,.12);border:1px solid rgba(216,32,63,.4);color:#ff8fa3}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:20px 0}
+.bar .grow{flex:1}
+.hint{font-size:.82rem;color:var(--muted);margin-top:6px}
+.btn.sm{padding:.55em 1.05em;font-size:.85rem}
+.btn.dan{background:transparent;border-color:var(--line2);color:var(--ink2)}
+.btn.dan:hover{border-color:var(--accent);color:var(--accent2);background:transparent}
+</style>
+</head>
+<body>
+<div class="note"><b>LatexPapa admin</b> · Add and edit products · <a href="/">Back to the shop</a></div>
+<div class="adm">
+
+  <section id="gate">
+    <h1>Sign in</h1>
+    <p class="lead">Enter the admin password to manage products.</p>
+    <div class="msg" id="gateMsg"></div>
+    <form id="loginForm">
+      <label class="fld"><span>Password</span><input type="password" id="pw" autocomplete="current-password" required></label>
+      <button class="btn" type="submit">Sign in</button>
+    </form>
+  </section>
+
+  <section id="panel" style="display:none">
+    <div class="bar">
+      <h1 style="margin:0;flex:1">Products</h1>
+      <button class="btn sm" id="newBtn" type="button">+ New product</button>
+      <button class="btn sm dan" id="outBtn" type="button">Sign out</button>
+    </div>
+    <div class="msg" id="msg"></div>
+
+    <form id="pform" style="display:none">
+      <input type="hidden" id="pid">
+      <label class="fld"><span>Product name</span><input id="pname" required placeholder="e.g. Latex Catsuit — Aurora"></label>
+      <div class="row2">
+        <label class="fld"><span>Price (USD)</span><input id="pprice" type="number" step="0.01" min="0" required placeholder="129.00"></label>
+        <label class="fld"><span>Compare-at price (optional)</span><input id="pwas" type="number" step="0.01" min="0" placeholder="159.00"></label>
+      </div>
+      <label class="fld"><span>Category</span><select id="pcat"></select></label>
+      <label class="fld"><span>Short description for Google (max 160 chars)</span><input id="pmeta" maxlength="200" placeholder="Made-to-measure latex catsuit in 0.40mm natural latex, any colour, free worldwide shipping."></label>
+      <label class="fld"><span>Full description (HTML allowed)</span><textarea id="pdesc" placeholder="&lt;p&gt;Describe the piece…&lt;/p&gt;"></textarea></label>
+
+      <label class="fld"><span>Photos</span></label>
+      <div class="drop" id="drop">Tap to choose photos, or drag them here<br><span class="hint">JPG / PNG / WebP, up to 6 MB each</span></div>
+      <input type="file" id="file" accept="image/*" multiple hidden>
+      <div class="shots" id="shots"></div>
+
+      <div class="bar">
+        <button class="btn" type="submit" id="saveBtn">Save product</button>
+        <button class="btn ghost sm" type="button" id="cancelBtn">Cancel</button>
+        <span class="grow"></span>
+        <button class="btn dan sm" type="button" id="delBtn" style="display:none">Delete</button>
+      </div>
+      <p class="hint">Saved products appear on the website right away. To have them baked into the main catalogue pages and sitemap, ask Codex to rebuild.</p>
+    </form>
+
+    <div class="list" id="list"></div>
+  </section>
+</div>
+
+<script>window.__CATS__ = [/*__CATEGORIES__*/];</script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var images = [];
+  var current = null;
+
+  function note(el, text, bad) {
+    el.textContent = text;
+    el.className = 'msg ' + (bad ? 'bad' : 'ok');
+  }
+  function hide(el) { el.className = 'msg'; }
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.credentials = 'same-origin';
+    if (opts.body && typeof opts.body !== 'string' && !(opts.body instanceof FormData)) {
+      opts.headers = { 'content-type': 'application/json' };
+      opts.body = JSON.stringify(opts.body);
+    }
+    return fetch(path, opts).then(function (r) { return r.json().catch(function () { return {}; }); });
+  }
+
+  function fillCats() {
+    var sel = $('pcat');
+    sel.innerHTML = '';
+    (window.__CATS__ || []).forEach(function (c) {
+      var o = document.createElement('option');
+      o.value = c.slug; o.textContent = c.name; o.setAttribute('data-name', c.name);
+      sel.appendChild(o);
+    });
+  }
+
+  function renderShots() {
+    var box = $('shots');
+    box.innerHTML = '';
+    images.forEach(function (u, i) {
+      var d = document.createElement('div');
+      d.className = 'shot';
+      d.innerHTML = '<img src="' + u + '" alt=""><b>' + (i === 0 ? 'main' : i + 1) + '</b>';
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = '\u00d7';
+      b.onclick = function () { images.splice(i, 1); renderShots(); };
+      d.appendChild(b);
+      box.appendChild(d);
+    });
+  }
+
+  async function upload(files) {
+    for (var i = 0; i < files.length; i++) {
+      var fd = new FormData();
+      fd.append('file', files[i]);
+      var r = await api('/api/upload', { method: 'POST', body: fd });
+      if (r && r.ok) { images.push(r.url); renderShots(); }
+      else { alert((r && r.error) || 'Upload failed'); }
+    }
+  }
+
+  function showForm(p) {
+    current = p || null;
+    $('pid').value = p ? p.id : '';
+    $('pname').value = p ? p.name : '';
+    $('pprice').value = p ? p.price : '';
+    $('pwas').value = p && p.wasPrice ? p.wasPrice : '';
+    $('pmeta').value = p ? (p.metaDescription || '') : '';
+    $('pdesc').value = p ? (p.descriptionHtml || '') : '';
+    $('pcat').value = p && p.category ? p.category : (window.__CATS__[0] || {}).slug;
+    images = p && p.images ? p.images.slice() : [];
+    renderShots();
+    $('delBtn').style.display = p ? 'inline-flex' : 'none';
+    $('pform').style.display = 'block';
+    window.scrollTo(0, 0);
+    hide($('msg'));
+  }
+
+  function renderList(items) {
+    var box = $('list');
+    box.innerHTML = '';
+    if (!items.length) {
+      box.innerHTML = '<p class="hint" style="padding:16px 0">Nothing added yet. Products you add here show up on the site immediately.</p>';
+      return;
+    }
+    items.forEach(function (p) {
+      var d = document.createElement('div');
+      d.className = 'it';
+      d.innerHTML = '<img src="' + ((p.images && p.images[0]) || '/assets/style.css') + '" alt="">' +
+        '<div class="meta"><b>' + p.name + '</b><span>' + (p.categoryName || p.category || '') + ' · $' + Number(p.price || 0).toFixed(2) + '</span></div>';
+      var e = document.createElement('button');
+      e.className = 'btn sm ghost'; e.type = 'button'; e.textContent = 'Edit';
+      e.onclick = function () { showForm(p); };
+      d.appendChild(e);
+      box.appendChild(d);
+    });
+  }
+
+  async function load() {
+    var r = await api('/api/list');
+    if (!r.ok) { $('gate').style.display = 'block'; $('panel').style.display = 'none'; return; }
+    $('gate').style.display = 'none';
+    $('panel').style.display = 'block';
+    renderList(r.products || []);
+  }
+
+  $('loginForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var r = await api('/api/login', { method: 'POST', body: { password: $('pw').value } });
+    if (r.ok) { $('pw').value = ''; hide($('gateMsg')); load(); }
+    else note($('gateMsg'), (r && r.error) || 'Sign in failed', true);
+  });
+
+  $('outBtn').addEventListener('click', async function () {
+    await api('/api/logout', { method: 'POST' });
+    location.reload();
+  });
+
+  $('newBtn').addEventListener('click', function () { showForm(null); });
+  $('cancelBtn').addEventListener('click', function () { $('pform').style.display = 'none'; hide($('msg')); });
+
+  $('pform').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var catSel = $('pcat');
+    var prod = {
+      id: $('pid').value || '',
+      name: $('pname').value.trim(),
+      slug: current && current.slug ? current.slug : '',
+      price: Number($('pprice').value || 0),
+      wasPrice: $('pwas').value ? Number($('pwas').value) : undefined,
+      category: catSel.value,
+      categoryName: catSel.options[catSel.selectedIndex] ? catSel.options[catSel.selectedIndex].textContent : '',
+      metaDescription: $('pmeta').value.trim(),
+      descriptionHtml: $('pdesc').value,
+      images: images,
+      source: 'admin',
+    };
+    if (!prod.id) prod.slug = '';
+    $('saveBtn').disabled = true;
+    var r = await api('/api/save', { method: 'POST', body: prod });
+    $('saveBtn').disabled = false;
+    if (r.ok) { $('pid').value = r.product.id; await load(); showForm(r.product); note($('msg'), 'Saved \u2014 this product is live on the site now.', false); }
+    else note($('msg'), (r && r.error) || 'Could not save', true);
+  });
+
+  $('delBtn').addEventListener('click', async function () {
+    var id = $('pid').value;
+    if (!id || !confirm('Delete this product?')) return;
+    var r = await api('/api/delete', { method: 'POST', body: { id: id } });
+    if (r.ok) { $('pform').style.display = 'none'; note($('msg'), 'Deleted.', false); load(); }
+  });
+
+  $('drop').addEventListener('click', function () { $('file').click(); });
+  $('file').addEventListener('change', function () { upload(this.files); this.value = ''; });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.add('hot'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.remove('hot'); });
+  });
+  $('drop').addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) upload(e.dataTransfer.files); });
+
+  fillCats();
+  load();
+})();
+</script>
+</body>
+</html>
