@@ -1241,6 +1241,11 @@ Allow: /
 Sitemap: ${SITE}/sitemap.xml
 `, 'utf8');
 
+/* ---------- IndexNow (Bing / Yandex / Seznam / Naver) ---------- */
+// The key file must live at the site root and contain the key verbatim.
+const INDEXNOW_KEY = 'f03bfbc5285c23bd1478f7ed84d0be04';
+fs.writeFileSync(path.join(OUT, INDEXNOW_KEY + '.txt'), INDEXNOW_KEY);
+
 const cats = categories.map(c => `- [${c.title}](${SITE}/${c.slug}/): ${c.desc}`).join('\n');
 fs.writeFileSync(path.join(OUT, 'llms.txt'),
 `# ${BRAND}
