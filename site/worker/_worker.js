@@ -42,6 +42,73 @@ function money(n) { return '$' + Number(n || 0).toFixed(2); }
 
 const COOKIE = 'lp_admin';
 const secretOf = env => env.ADMIN_SECRET || env.ADMIN_PASSWORD || 'latexpapa-fallback';
+/* ---------- checkout: PayPal (totals are always recomputed here) ---------- */
+// CATALOG is injected at build time by site/build.mjs — slug -> { p: price, n: name }.
+// A price sent by the browser is never trusted.
+const CATALOG = /*__CATALOG__*/ {};
+const CURRENCY = 'USD';
+const paypalEnv = env => (String(env.PAYPAL_ENV || '').toLowerCase() === 'sandbox' ? 'sandbox' : 'live');
+const paypalBase = env => (paypalEnv(env) === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com');
+const paypalReady = env => !!(env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET);
+
+let PP_TOKEN = { key: '', value: '', exp: 0 };
+async function paypalToken(env) {
+  const key = paypalEnv(env) + '|' + env.PAYPAL_CLIENT_ID;
+  if (PP_TOKEN.key === key && PP_TOKEN.value && PP_TOKEN.exp > Date.now()) return PP_TOKEN.value;
+  const res = await fetch(paypalBase(env) + '/v1/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      authorization: 'Basic ' + btoa(env.PAYPAL_CLIENT_ID + ':' + env.PAYPAL_CLIENT_SECRET),
+    },
+    body: 'grant_type=client_credentials',
+  });
+  if (!res.ok) throw new Error('paypal-auth-' + res.status);
+  const j = await res.json();
+  if (!j.access_token) throw new Error('paypal-auth-no-token');
+  PP_TOKEN = { key, value: j.access_token, exp: Date.now() + Math.max(60, (Number(j.expires_in) || 3000) - 120) * 1000 };
+  return PP_TOKEN.value;
+}
+
+async function paypalFetch(env, path, method, body, extra) {
+  const token = await paypalToken(env);
+  const headers = { 'content-type': 'application/json', authorization: 'Bearer ' + token };
+  if (extra) for (const k in extra) headers[k] = extra[k];
+  const res = await fetch(paypalBase(env) + path, {
+    method: method || 'GET', headers, body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(res.status + ' ' + String(text).slice(0, 180));
+  try { return text ? JSON.parse(text) : {}; } catch (e) { return {}; }
+}
+
+// Turn whatever the browser posted into trusted order lines.
+function cartLines(items) {
+  const out = [];
+  const seen = {};
+  const list = Array.isArray(items) ? items : [];
+  for (const it of list) {
+    if (!it || typeof it !== 'object') continue;
+    const slug = String(it.slug || '').slice(0, 80);
+    const entry = CATALOG[slug];
+    if (!entry || !(Number(entry.p) > 0)) continue;
+    let qty = Math.floor(Number(it.qty) || 1);
+    if (!(qty >= 1)) qty = 1;
+    if (qty > 20) qty = 20;
+    if (seen[slug]) { seen[slug].qty = Math.min(20, seen[slug].qty + qty); continue; }
+    if (out.length >= 40) break;
+    seen[slug] = { slug, name: String(entry.n || slug).slice(0, 127), price: Number(entry.p), qty };
+    out.push(seen[slug]);
+  }
+  return out;
+}
+function linesTotal(lines) { return Math.round(lines.reduce((s, l) => s + l.price * l.qty, 0) * 100) / 100; }
+async function readOrders(env) {
+  const raw = await env.LATEXPAPA_DATA.get('orders');
+  if (!raw) return [];
+  try { const j = JSON.parse(raw); return Array.isArray(j) ? j : []; } catch (e) { return []; }
+}
+function orderRef(id) { return 'LP-' + String(id || '').replace(/[^A-Za-z0-9]/g, '').slice(-6).toUpperCase(); }
 
 async function newSession(env) {
   const payload = b64u(enc.encode(JSON.stringify({ exp: Date.now() + 1000 * 60 * 60 * 24 * 14 })));
@@ -137,6 +204,111 @@ async function handleApi(request, env, url) {
       category: p.category, categoryName: p.categoryName, images: p.images || [],
     })) });
   }
+/* ---------- checkout API (public) ---------- */
+  if (path === '/api/pay/ping' && method === 'GET') {
+    return json({ ok: true, ready: paypalReady(env), env: paypalEnv(env), currency: CURRENCY });
+  }
+
+  if (path === '/api/pay/create' && method === 'POST') {
+    if (!paypalReady(env)) return json({ ok: false, error: 'Card payment is not switched on yet - please order by email.' }, 503);
+    const body = await request.json().catch(() => ({}));
+    const lines = cartLines(body.items);
+    if (!lines.length) return json({ ok: false, error: 'Your cart is empty.' }, 400);
+    const total = linesTotal(lines);
+    const unit = {
+      reference_id: 'latexpapa',
+      description: 'LatexPapa made-to-measure order',
+      items: lines.map(l => ({
+        name: l.name, sku: l.slug, quantity: String(l.qty),
+        unit_amount: { currency_code: CURRENCY, value: l.price.toFixed(2) },
+        category: 'PHYSICAL_GOODS',
+      })),
+      amount: {
+        currency_code: CURRENCY, value: total.toFixed(2),
+        breakdown: { item_total: { currency_code: CURRENCY, value: total.toFixed(2) } },
+      },
+    };
+    const note = String(body.note || '').trim().slice(0, 120);
+    if (note) unit.custom_id = note;
+    let created;
+    try {
+      created = await paypalFetch(env, '/v2/checkout/orders', 'POST', {
+        intent: 'CAPTURE',
+        purchase_units: [unit],
+        application_context: {
+          brand_name: 'LatexPapa',
+          landing_page: 'LOGIN',
+          user_action: 'PAY_NOW',
+          shipping_preference: 'GET_FROM_FILE',
+          return_url: url.origin + '/checkout/',
+          cancel_url: url.origin + '/checkout/',
+        },
+      }, { 'PayPal-Request-Id': 'lp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) });
+    } catch (e) { return json({ ok: false, error: String(e.message || e) }, 502); }
+    const links = Array.isArray(created.links) ? created.links : [];
+    const approve = links.find(l => l.rel === 'approve' || l.rel === 'payer-action');
+    if (!created.id || !approve) return json({ ok: false, error: 'PayPal did not return an approval link.' }, 502);
+    return json({ ok: true, id: created.id, approvalUrl: approve.href, total, currency: CURRENCY, env: paypalEnv(env) });
+  }
+
+  if (path === '/api/pay/capture' && method === 'POST') {
+    if (!paypalReady(env)) return json({ ok: false, error: 'Card payment is not switched on yet.' }, 503);
+    const body = await request.json().catch(() => ({}));
+    const id = String(body.id || '').slice(0, 80);
+    if (!id) return json({ ok: false, error: 'Missing order id.' }, 400);
+    let cap;
+    try {
+      cap = await paypalFetch(env, '/v2/checkout/orders/' + encodeURIComponent(id) + '/capture', 'POST', {});
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (/ORDER_ALREADY_CAPTURED/.test(msg)) {
+        const saved = (await readOrders(env)).find(o => o.paypalId === id);
+        if (saved) return json({ ok: true, ref: saved.ref, status: saved.status, total: saved.total, currency: saved.currency, repeat: true });
+      }
+      return json({ ok: false, error: msg }, 502);
+    }
+    if (cap.status !== 'COMPLETED') return json({ ok: false, error: 'Payment not completed (' + cap.status + ').' }, 409);
+    const pu = (Array.isArray(cap.purchase_units) && cap.purchase_units[0]) || {};
+    const caps = (pu.payments && Array.isArray(pu.payments.captures) && pu.payments.captures[0]) || null;
+    const amount = (caps && caps.amount) || pu.amount || {};
+    const orders = await readOrders(env);
+    let rec = orders.find(o => o.paypalId === id);
+    if (!rec) {
+      rec = {
+        id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        paypalId: id, ref: orderRef(id), status: cap.status,
+        total: Number(amount.value || 0), currency: amount.currency_code || CURRENCY,
+        payer: (cap.payer && (cap.payer.email_address || cap.payer.payer_id)) || '',
+        items: (Array.isArray(pu.items) ? pu.items : []).map(i => ({
+          sku: i.sku, name: i.name, qty: Number(i.quantity || 1),
+          price: Number((i.unit_amount && i.unit_amount.value) || 0),
+        })),
+        created: new Date().toISOString(),
+      };
+      orders.unshift(rec);
+      while (orders.length > 400) orders.pop();
+      await env.LATEXPAPA_DATA.put('orders', JSON.stringify(orders));
+    }
+    return json({ ok: true, ref: rec.ref, status: cap.status, total: rec.total, currency: rec.currency });
+  }
+
+  if (path === '/api/pay/order' && method === 'GET') {
+    const id = String(url.searchParams.get('id') || '').slice(0, 80);
+    if (!id) return json({ ok: false, error: 'Missing order id.' }, 400);
+    const saved = (await readOrders(env)).find(o => o.paypalId === id);
+    if (saved) return json({ ok: true, status: saved.status, ref: saved.ref, total: saved.total, currency: saved.currency, saved: true });
+    if (!paypalReady(env)) return json({ ok: false, error: 'Card payment is not switched on yet.' }, 503);
+    let ord;
+    try { ord = await paypalFetch(env, '/v2/checkout/orders/' + encodeURIComponent(id)); }
+    catch (e) { return json({ ok: false, error: String(e.message || e) }, 502); }
+    const pu = (Array.isArray(ord.purchase_units) && ord.purchase_units[0]) || {};
+    return json({
+      ok: true, status: ord.status, ref: orderRef(id),
+      total: Number((pu.amount && pu.amount.value) || 0),
+      currency: (pu.amount && pu.amount.currency_code) || CURRENCY,
+    });
+  }
+
   if (path === '/api/session' && method === 'GET') {
     return json({ ok: true, authed: await isAuthed(request, env) });
   }

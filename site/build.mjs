@@ -109,6 +109,7 @@ function header(active) {
   <a class="logo" href="/">Latex<span>Papa</span></a>
   <button class="navbtn" type="button" id="navbtn" aria-expanded="false" aria-controls="primary-nav" aria-label="Open menu"><span class="navbtn-box"><span></span><span></span><span></span></span></button>
   <nav class="nav" id="primary-nav" aria-label="Main">${links}<a class="nav-cta" href="/custom-latex/">Start a custom piece</a></nav>
+  <a class="cartlink" href="/cart/" aria-label="Cart">Cart <span class="cartn" data-cart-count style="display:none">0</span></a>
   <a class="btn cta" href="/custom-latex/">Start a custom piece</a>
 </div></header>`;
 }
@@ -164,11 +165,14 @@ const NAV_JS = `<script>
 
 // inline helper that surfaces products added through /admin/ on listing pages
 const ADDITIONS_SRC = path.resolve('site/scripts/additions.js');
+const CART_SRC = path.resolve('site/scripts/cart.js');
+const CART_JS = fs.existsSync(CART_SRC) ? '<script>' + fs.readFileSync(CART_SRC, 'utf8') + '</script>' : '';
+
 const ADDITIONS_JS = fs.existsSync(ADDITIONS_SRC)
   ? '<script>' + fs.readFileSync(ADDITIONS_SRC, 'utf8') + '</script>'
   : '';
 
-function layout({ title, description, url, body, jsonLd = [], ogImage, robots, active }) {
+function layout({ title, description, url, body, jsonLd = [], ogImage, robots, active, canonical, head }) {
   const metaDesc = clampDesc(description);
   return `<!doctype html>
 <html lang="en">
@@ -177,7 +181,7 @@ function layout({ title, description, url, body, jsonLd = [], ogImage, robots, a
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc2(title)}</title>
 <meta name="description" content="${esc2(metaDesc)}">
-<link rel="canonical" href="${SITE}${url}">
+<link rel="canonical" href="${canonical || SITE + url}">
 ${robots ? `<meta name="robots" content="${esc2(robots)}">` : '<meta name="robots" content="index,follow,max-image-preview:large">'}
 <meta name="theme-color" content="#0a0a0b">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -193,6 +197,7 @@ ${robots ? `<meta name="robots" content="${esc2(robots)}">` : '<meta name="robot
 <meta property="og:url" content="${SITE}${url}">
 ${ogImage ? `<meta property="og:image" content="${ogImage}">\n<meta name="twitter:card" content="summary_large_image">\n<meta name="twitter:image" content="${ogImage}">` : '<meta name="twitter:card" content="summary">'}
 <link rel="stylesheet" href="/assets/style.css">
+${head || ''}
 <link rel="alternate" hreflang="en" href="${SITE}${url}">
 <link rel="alternate" hreflang="x-default" href="${SITE}${url}">
 ${jsonLd.map(j => `<script type="application/ld+json">${JSON.stringify(j)}</script>`).join('\n')}
@@ -204,6 +209,7 @@ ${body}
 </main>
 ${footer()}
 ${NAV_JS}
+${CART_JS}
 ${ADDITIONS_JS}
 </body>
 </html>`;
@@ -475,8 +481,11 @@ for (const p of products) {
         ${colors.length ? `<div class="opt"><div class="lab">Colour <span class="muted" style="text-transform:none;letter-spacing:0">— any colour available, metallic +20%</span></div><div class="chips">${colors.map(s => `<button class="chip${p.defaults.Color === s ? ' on' : ''}" type="button">${esc2(s)}</button>`).join('')}</div></div>` : ''}
         ${styles.length ? `<div class="opt"><div class="lab">Style</div><div class="chips">${styles.map(s => `<button class="chip${p.defaults.Style === s ? ' on' : ''}" type="button">${esc2(s)}</button>`).join('')}</div></div>` : ''}
         <div class="panel" style="margin:22px 0">
-          <a class="btn block" href="/contact/?item=${encodeURIComponent(p.name)}">Order this piece</a>
-          <p class="muted" style="font-size:.82rem;margin:12px 0 0;text-align:center">Card, Apple Pay, Google Pay and PayPal · Free worldwide shipping</p>
+          ${p.price ? `<button class="btn block" type="button" data-add="${esc2(p.slug)}">Add to cart</button>
+          <a class="btn block ghost" href="/checkout/" style="margin-top:10px">Buy it now</a>
+          <p class="muted" style="font-size:.82rem;margin:12px 0 0;text-align:center">Card, Apple Pay, Google Pay and PayPal · Free worldwide shipping</p>`
+          : `<a class="btn block" href="/contact/?item=${encodeURIComponent(p.name)}">Enquire about this piece</a>
+          <p class="muted" style="font-size:.82rem;margin:12px 0 0;text-align:center">Price on request · Free worldwide shipping</p>`}
         </div>
         <ul class="bullets">
           <li>Cut to your measurements — send them after ordering</li>
@@ -616,6 +625,7 @@ writePage('/measure-guide/', layout({
   title: `How to Measure for Latex Clothing — The Nine Measurements | ${BRAND}`,
   description: 'Latex makers work from nine body measurements, not size letters. Where the tape goes, the three most people get wrong, and what to do with the numbers.',
   url: '/measure-guide/', active: '/size-guide/',
+  canonical: 'https://tools.latexpapa.com/measure-guide/',
   jsonLd: [ORG, crumbs([{ name: 'Home', url: '/' }, { name: 'Measuring guide', url: '/measure-guide/' }]), {
     '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: [
       { '@type': 'Question', name: 'Can I measure myself for latex clothing?', acceptedAnswer: { '@type': 'Answer', text: 'Yes, and most makers expect it. Self-measurement is usually accurate to within 1–2 cm, which the reduction absorbs. Measure twice, keep the tape level, and never pull it tight enough to compress the skin.' } },
@@ -766,6 +776,7 @@ writePage('/size-calculator/', layout({
   title: `Latex Size Calculator — Finished Measurements to Cut | ${BRAND}`,
   description: 'Free latex size calculator. Enter your measurements and sheeting thickness to get the finished sizes a maker should cut, plus a sheet to send with your order.',
   url: '/size-calculator/', active: '/size-guide/',
+  canonical: 'https://tools.latexpapa.com/size-calculator/',
   jsonLd: [ORG, crumbs([{ name: 'Home', url: '/' }, { name: 'Size calculator', url: '/size-calculator/' }]), {
     '@context': 'https://schema.org', '@type': 'WebApplication', name: 'Latex Size Calculator',
     applicationCategory: 'UtilitiesApplication', operatingSystem: 'Any', url: `${SITE}/size-calculator/`,
@@ -840,6 +851,7 @@ writePage('/thickness-guide/', layout({
   title: `Latex Thickness Guide — 0.25mm to 1.00mm | ${BRAND}`,
   description: 'How latex thickness changes stretch, durability, dressing difficulty and pattern reduction, from 0.25mm to 1.00mm — and how to choose for a first catsuit.',
   url: '/thickness-guide/', active: '/size-guide/',
+  canonical: 'https://tools.latexpapa.com/thickness-guide/',
   jsonLd: [ORG, crumbs([{ name: 'Home', url: '/' }, { name: 'Thickness guide', url: '/thickness-guide/' }]), {
     '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: [
       { '@type': 'Question', name: 'What is the most common latex thickness for a catsuit?', acceptedAnswer: { '@type': 'Answer', text: '0.40 mm. It is the best compromise between stretch, durability and price, and most made-to-measure catsuits are cut from it.' } },
@@ -1168,9 +1180,78 @@ fs.writeFileSync(path.join(OUT, '404.html'), layout({
   </section></div>`,
 }), 'utf8');
 
+/* ---------- cart + checkout ---------- */
+// Client-side cart. Prices are re-derived from the injected catalogue by the
+// worker before anything is charged, so the numbers in here are display only.
+const CATALOG_CLIENT = Object.fromEntries(
+  products.filter(p => p.price).map(p => [p.slug, { p: Number(p.price), n: p.name, img: pic(p, 0) || '' }])
+);
+const CATALOG_JS = `<script>window.LP_CATALOG=${JSON.stringify(CATALOG_CLIENT)}</script>`;
+
+writePage('/cart/', layout({
+  title: `Your cart | ${BRAND}`,
+  description: 'The pieces you have chosen from LatexPapa. Everything is made to your measurements and shipped free worldwide.',
+  url: '/cart/', active: null, robots: 'noindex,follow',
+  head: CATALOG_JS,
+  body: `<div class="wrap" style="padding:56px 0 40px">
+  <p class="eyebrow">Step 1 of 2</p>
+  <h1>Your cart</h1>
+  <p class="lead">Nothing is cut until we have your numbers — after payment we email a measurement sheet.</p>
+  <div id="cart-empty" class="panel" style="margin-top:28px">
+    <p style="margin:0 0 14px">Your cart is empty.</p>
+    <a class="btn" href="/shop/">Browse all ${TOTAL} pieces</a>
+  </div>
+  <div id="cart-body" style="display:none">
+    <div class="cart" data-cart-lines></div>
+    <div class="cartfoot">
+      <div><span class="muted">Subtotal</span> <b class="sub" data-cart-subtotal>$0.00</b>
+        <p class="muted" style="font-size:.84rem;margin:6px 0 0">Free worldwide shipping · Prices in USD</p></div>
+      <a class="btn" id="cart-go" href="/checkout/">Proceed to checkout</a>
+    </div>
+    <p class="muted" style="font-size:.84rem;margin-top:20px">Colour, thickness and hardware are agreed by email after checkout. Metallic colours add 20%.</p>
+  </div>
+</div>`,
+}), 'utf8');
+
+writePage('/checkout/', layout({
+  title: `Checkout | ${BRAND}`,
+  description: 'Pay securely by card, Apple Pay, Google Pay or PayPal. Made-to-measure latex, free worldwide shipping.',
+  url: '/checkout/', active: null, robots: 'noindex,follow',
+  head: CATALOG_JS,
+  body: `<div class="wrap" style="padding:56px 0 40px">
+  <p class="eyebrow">Step 2 of 2</p>
+  <h1>Checkout</h1>
+  <div class="cogrid">
+    <div>
+      <div id="co-lines">
+        <div class="cart" data-cart-lines></div>
+        <div class="cartfoot" style="border-top:0;padding-top:0">
+          <div><span class="muted">Total</span> <b class="sub" data-cart-subtotal>$0.00</b></div>
+          <a class="muted" href="/cart/" style="font-size:.9rem">Edit cart</a>
+        </div>
+      </div>
+      <div id="co-state" style="margin-top:22px"></div>
+    </div>
+    <aside class="panel">
+      <h3 style="margin-bottom:14px">After payment</h3>
+      <ol class="steps">
+        <li>You get an order reference on this page.</li>
+        <li>Email or WhatsApp us your nine measurements — the <a href="/measure-guide/">measuring guide</a> shows where the tape goes.</li>
+        <li>We confirm the numbers, then cut. Production is ${PRODUCTION}, then free tracked shipping.</li>
+      </ol>
+      <button class="btn block" type="button" id="co-pay" style="margin-top:18px">Pay with PayPal</button>
+      <p class="muted" style="font-size:.82rem;margin:12px 0 0;text-align:center">Card · Apple Pay · Google Pay · PayPal</p>
+      <p class="muted" style="font-size:.82rem;margin:14px 0 0">Questions first? <a href="/contact/">Talk to us</a> or email ${e(EMAIL)}.</p>
+    </aside>
+  </div>
+</div>`,
+}), 'utf8');
 /* ---------- crawler + AI files ---------- */
 const noPrice = new Set(products.filter(p => !p.price).map(p => `/product/${p.slug}/`));
-const urls = pages.map(p => p.url).filter(u => !noPrice.has(u));
+// These three pages are duplicated by the dedicated tool site (tools.latexpapa.com) and
+// point their rel=canonical there, so they must not also be listed in this sitemap.
+const CANONICAL_ELSEWHERE = new Set(['/size-calculator/', '/measure-guide/', '/thickness-guide/', '/cart/', '/checkout/']);
+const urls = pages.map(p => p.url).filter(u => !noPrice.has(u) && !CANONICAL_ELSEWHERE.has(u));
 
 fs.mkdirSync(path.join(OUT, 'assets'), { recursive: true });
 fs.copyFileSync(path.resolve('site/style.css'), path.join(OUT, 'assets', 'style.css'));
@@ -1296,9 +1377,24 @@ if (fs.existsSync(ADMIN_SRC)) {
 }
 const WORKER_DIR = path.resolve('site/worker');
 if (fs.existsSync(WORKER_DIR)) {
+﻿  // CATALOG — server-side price table for checkout. The worker recomputes every
+  // total from these numbers, so a tampered browser payload can never change
+  // what is actually charged.
+  const CATALOG_WORKER = JSON.stringify(Object.fromEntries(
+    products.filter(p => p.price).map(p => [p.slug, { p: Number(p.price), n: p.name }])
+  ));
   for (const name of ['_worker.js', '_routes.json']) {
     const src = path.join(WORKER_DIR, name);
-    if (fs.existsSync(src)) fs.copyFileSync(src, path.join(OUT, name));
+    if (!fs.existsSync(src)) continue;
+    if (name === '_worker.js') {
+      const js = fs.readFileSync(src, 'utf8');
+      const marker = '/*__CATALOG__*/ {}';
+      if (js.indexOf(marker) < 0) throw new Error('site/worker/_worker.js is missing ' + marker);
+      fs.writeFileSync(path.join(OUT, name), js.split(marker).join(CATALOG_WORKER), 'utf8');
+      console.log('catalog injected:', Object.keys(JSON.parse(CATALOG_WORKER)).length, 'priced pieces');
+    } else {
+      fs.copyFileSync(src, path.join(OUT, name));
+    }
   }
   console.log('pages worker staged');
 }
