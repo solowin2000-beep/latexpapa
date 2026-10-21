@@ -192,7 +192,18 @@
       if (j && j.ready) {
         show('<p class="muted">You will be taken to PayPal to pay by card, Apple Pay, Google Pay or your PayPal balance. Free worldwide shipping is already included.</p>');
       } else {
-        show('<div class="paynotice"><b>Pay by email or WhatsApp.</b><br>Send us the list on this page and we will reply with a payment link and your measurement sheet.</div>');
+        var list = arr.map(function (x) {
+          var c = CAT[x.slug] || {};
+          var line = '  - ' + (c.n || x.slug) + ' x' + x.qty + (c.p ? '  (' + money(c.p * x.qty) + ')' : '');
+          return line;
+        }).join('\n');
+        var total = arr.reduce(function (s, x) { return s + Number((CAT[x.slug] || {}).p || 0) * x.qty; }, 0);
+        var body = 'Hello LatexPapa,\n\nI would like to order:\n' + list + '\n\nItems: ' + money(total) + '\n\nMy measurements:\n';
+        var mail = 'mailto:latexpapa@latexpapa.com?subject=' + encodeURIComponent('Order from latexpapa.com') + '&body=' + encodeURIComponent(body);
+        var wa = 'https://wa.me/8615622227358?text=' + encodeURIComponent(body);
+        show('<div class="paynotice"><b>Pay by email or WhatsApp.</b><br>Send us this list and we will reply with a payment link and your measurement sheet. The items are already filled in &mdash; just add your measurements.</div>' +
+          '<a class="btn block" style="margin-top:16px" href="' + mail + '">Email us this order</a>' +
+          '<a class="btn block ghost" style="margin-top:10px" href="' + wa + '" target="_blank" rel="noopener">Send it on WhatsApp</a>');
         if (payBtn) payBtn.style.display = 'none';
       }
     }).catch(function () { show('<p class="muted">Ready to pay.</p>'); });
