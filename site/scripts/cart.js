@@ -144,7 +144,7 @@
   function load() {
     paint();
     if (document.querySelector('[data-cart-lines]') || document.getElementById('cart-body')) renderCart();
-    if (window.LP_CHECKOUT && typeof initCheckout === 'function') initCheckout();
+    if (typeof initCheckout === 'function' && document.getElementById('co-pay')) initCheckout();
   }
 
   function initCheckout() {
