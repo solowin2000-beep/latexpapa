@@ -109,6 +109,216 @@ async function readOrders(env) {
   try { const j = JSON.parse(raw); return Array.isArray(j) ? j : []; } catch (e) { return []; }
 }
 function orderRef(id) { return 'LP-' + String(id || '').replace(/[^A-Za-z0-9]/g, '').slice(-6).toUpperCase(); }
+const ORDER_STATUSES = ['awaiting', 'paid', 'shipped', 'cancelled', 'refunded'];
+
+async function writeOrders(env, list) {
+  while (list.length > 600) list.pop();
+  await env.LATEXPAPA_DATA.put('orders', JSON.stringify(list));
+}
+
+// upsertOrder — create or patch one order keyed by its PayPal order id.
+async function upsertOrder(env, paypalId, patch, event) {
+  const list = await readOrders(env);
+  let rec = list.find(o => o.paypalId === paypalId);
+  if (!rec) {
+    rec = {
+      id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      paypalId, ref: orderRef(paypalId), status: 'awaiting',
+      created: new Date().toISOString(), timeline: [],
+    };
+    list.unshift(rec);
+  }
+  for (const k in patch) if (patch[k] !== undefined) rec[k] = patch[k];
+  rec.updatedAt = new Date().toISOString();
+  if (event) { rec.timeline = rec.timeline || []; rec.timeline.push({ at: rec.updatedAt, event }); }
+  await writeOrders(env, list);
+  return rec;
+}
+
+function shippingOf(ord) {
+  const pu = (ord && Array.isArray(ord.purchase_units) && ord.purchase_units[0]) || {};
+  const sh = pu.shipping || {};
+  const a = sh.address || {};
+  const nm = sh.name ? (sh.name.full_name || [sh.name.given_name, sh.name.surname].filter(Boolean).join(' ')) : '';
+  const line = [a.address_line_1, a.address_line_2, a.admin_area_2, a.admin_area_1, a.postal_code, a.country_code]
+    .filter(Boolean).join(', ');
+  return { name: nm || '', address: line };
+}
+function customerOf(ord) {
+  const payer = (ord && ord.payer) || {};
+  const sh = shippingOf(ord);
+  const p = payer.name || {};
+  return {
+    email: payer.email_address || '',
+    name: sh.name || [p.given_name, p.surname].filter(Boolean).join(' ') || '',
+  };
+}
+function publicOrder(o) {
+  return {
+    id: o.id, ref: o.ref, status: o.status || 'awaiting',
+    paypalId: o.paypalId || '', captureId: o.captureId || '',
+    total: Number(o.total || 0), currency: o.currency || CURRENCY,
+    items: Array.isArray(o.items) ? o.items : [], note: o.note || '',
+    payer: o.payer || '',
+    customer: o.customer || { email: '', name: '' },
+    shipping: o.shipping || { name: '', address: '' },
+    carrier: o.carrier || '', tracking: o.tracking || '',
+    created: o.created || '', paidAt: o.paidAt || '', shippedAt: o.shippedAt || '',
+    updatedAt: o.updatedAt || '', timeline: Array.isArray(o.timeline) ? o.timeline : [],
+    notify: o.notify || null,
+  };
+}
+
+
+
+// notifyOrder - best effort only; never blocks a payment.
+// NOTIFY_WEBHOOK may hold several URLs separated by spaces or commas; they are
+// tried in order and the first one that succeeds wins (so a dead mirror does
+// not silence the alert, and the owner never gets duplicates).
+function channelOf(hook) {
+  let host = '';
+  try { host = new URL(hook).hostname.toLowerCase(); } catch (e) { return 'webhook'; }
+  if (host.indexOf('ntfy.') === 0 || host.indexOf('.ntfy.') >= 0) return 'ntfy';
+  if (host.indexOf('qyapi.weixin.qq.com') >= 0) return 'wecom';
+  if (host.indexOf('dingtalk.com') >= 0) return 'dingtalk';
+  if (host.indexOf('sctapi.ftqq.com') >= 0 || host.indexOf('ft07.com') >= 0) return 'serverchan';
+  if (host.indexOf('api.day.app') >= 0) return 'bark';
+  if (host.indexOf('telegram.org') >= 0) return 'telegram';
+  if (host.indexOf('slack.com') >= 0) return 'slack';
+  if (host.indexOf('discord') >= 0) return 'discord';
+  return 'webhook';
+}
+function displayOf(ch) {
+  if (ch === 'ntfy') return 'phone push';
+  if (ch === 'wecom') return 'WeCom group bot';
+  if (ch === 'dingtalk') return 'DingTalk group bot';
+  if (ch === 'serverchan') return 'ServerChan (WeChat)';
+  if (ch === 'bark') return 'Bark (iPhone)';
+  if (ch === 'telegram') return 'Telegram';
+  if (ch === 'slack') return 'Slack';
+  if (ch === 'discord') return 'Discord';
+  if (ch === 'email') return 'email';
+  if (ch === 'webhook') return 'custom webhook';
+  return 'off';
+}
+function notifyHooks(env) {
+  return String(env.NOTIFY_WEBHOOK || '').split(',').join(' ').split(' ').map(s => s.trim()).filter(Boolean);
+}
+function notifyChannel(env) {
+  const hooks = notifyHooks(env);
+  if (hooks.length) return channelOf(hooks[0]);
+  if (env.WEB3FORMS_KEY) return 'email';
+  return '';
+}
+function notifyLabel(env) {
+  const hooks = notifyHooks(env);
+  const c = notifyChannel(env);
+  if (c === 'off' || !c) return 'off';
+  return displayOf(c) + (hooks.length > 1 ? ' (x' + hooks.length + ' fallback)' : '');
+}
+function orderText(rec) {
+  const nl = String.fromCharCode(10);
+  const title = 'LatexPapa order ' + rec.ref;
+  const text = title + nl + (rec.items || []).map(i => i.name + ' x' + i.qty).join(nl) +
+    nl + 'Total: ' + money(rec.total) + ' ' + (rec.currency || CURRENCY) +
+    (rec.note ? nl + 'Note: ' + rec.note : '') +
+    (rec.customer && rec.customer.email ? nl + 'Email: ' + rec.customer.email : '') +
+    (rec.shipping && rec.shipping.address ? nl + 'Ship to: ' + rec.shipping.address : '') +
+    nl + nl + 'Orders: https://www.latexpapa.com/admin/';
+  return { title, text };
+}
+async function pushOne(ch, hook, env, title, text) {
+  const res = { channel: ch, display: displayOf(ch), ok: false, status: 0, error: '' };
+  try {
+    let url = hook;
+    let init = null;
+    if (ch === 'ntfy') {
+      const parts = new URL(hook);
+      const topic = parts.pathname.split('/').filter(Boolean)[0] || '';
+      url = parts.origin + '/';
+      init = { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ topic, title, message: text, tags: ['shopping_cart'], priority: 4 }) };
+    } else if (ch === 'wecom' || ch === 'dingtalk') {
+      init = { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ msgtype: 'text', text: { content: text } }) };
+    } else if (ch === 'serverchan') {
+      init = { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: 'title=' + encodeURIComponent(title) + '&desp=' + encodeURIComponent(text) };
+    } else if (ch === 'bark') {
+      init = { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title, body: text }) };
+    } else if (ch === 'telegram') {
+      init = { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chat_id: env.NOTIFY_CHAT_ID || '', text, disable_web_page_preview: true }) };
+    } else if (ch === 'discord') {
+      init = { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: text }) };
+    } else {
+      init = { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text, content: text, title, message: text }) };
+    }
+    const r = await fetch(url, init);
+    res.status = r.status;
+    res.ok = !!r.ok;
+    if (!r.ok) {
+      const t = await r.text().catch(() => '');
+      res.error = ('HTTP ' + r.status + ' ' + t).slice(0, 160);
+    }
+  } catch (e) { res.error = String((e && e.message) || e).slice(0, 160); }
+  return res;
+}
+async function notifyOrder(env, rec) {
+  const { title, text } = orderText(rec);
+  const results = [];
+  const hooks = notifyHooks(env);
+  for (const hook of hooks) {
+    const r = await pushOne(channelOf(hook), hook, env, title, text);
+    results.push(r);
+    if (r.ok) break;
+  }
+  if (env.WEB3FORMS_KEY) {
+    const e = { channel: 'email', display: 'email', ok: false, status: 0, error: '' };
+    try {
+      const r = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ access_key: env.WEB3FORMS_KEY, subject: title, from_name: 'LatexPapa shop',
+          email: env.NOTIFY_EMAIL || 'latexpapa@latexpapa.com', message: text }),
+      });
+      const body = await r.json().catch(() => ({}));
+      e.status = r.status;
+      e.ok = !!(r.ok && body && body.success !== false);
+      if (!e.ok) e.error = ('HTTP ' + r.status).slice(0, 160);
+    } catch (err) { e.error = String((err && err.message) || err).slice(0, 160); }
+    results.push(e);
+  }
+  const won = results.filter(r => r.ok)[0] || null;
+  const failed = results.filter(r => !r.ok);
+  return {
+    ok: !!won,
+    channel: won ? won.channel : (results.length ? results[0].channel : ''),
+    label: won ? won.display : (results.length ? results[0].display : 'off'),
+    status: results.length ? results[results.length - 1].status || 0 : 0,
+    error: won ? '' : (failed.length ? (failed[0].error || 'HTTP ' + failed[0].status) : 'no alert channel is set up yet'),
+    tried: results.map(r => r.display + '=' + (r.ok ? 'ok' : 'fail')),
+  };
+}
+
+async function saveNotify(env, rec, nres) {
+  try {
+    const list = await readOrders(env);
+    const patch = { notify: {
+      at: new Date().toISOString(),
+      channel: (nres && nres.label) || '',
+      ok: !!(nres && nres.ok),
+      status: (nres && nres.status) || 0,
+      error: (nres && nres.error) || '',
+    } };
+    const at = list.findIndex(o => (o.id && o.id === rec.id) || (o.paypalId && o.paypalId === rec.paypalId));
+    if (at >= 0) list[at] = Object.assign({}, list[at], patch);
+    else list.unshift(Object.assign({}, rec, patch));
+    await writeOrders(env, list);
+  } catch (e) {}
+}
 
 async function newSession(env) {
   const payload = b64u(enc.encode(JSON.stringify({ exp: Date.now() + 1000 * 60 * 60 * 24 * 14 })));
@@ -248,6 +458,16 @@ async function handleApi(request, env, url) {
     const links = Array.isArray(created.links) ? created.links : [];
     const approve = links.find(l => l.rel === 'approve' || l.rel === 'payer-action');
     if (!created.id || !approve) return json({ ok: false, error: 'PayPal did not return an approval link.' }, 502);
+    // Record the attempt straight away so an order is never lost if the buyer
+    // closes the tab before PayPal sends them back to us.
+    try {
+      await upsertOrder(env, created.id, {
+        ref: orderRef(created.id),
+        total, currency: CURRENCY,
+        items: lines.map(l => ({ sku: l.slug, name: l.name, qty: l.qty, price: l.price })),
+        note: note || '',
+      }, 'checkout started');
+    } catch (e) {}
     return json({ ok: true, id: created.id, approvalUrl: approve.href, total, currency: CURRENCY, env: paypalEnv(env) });
   }
 
@@ -271,24 +491,27 @@ async function handleApi(request, env, url) {
     const pu = (Array.isArray(cap.purchase_units) && cap.purchase_units[0]) || {};
     const caps = (pu.payments && Array.isArray(pu.payments.captures) && pu.payments.captures[0]) || null;
     const amount = (caps && caps.amount) || pu.amount || {};
-    const orders = await readOrders(env);
-    let rec = orders.find(o => o.paypalId === id);
-    if (!rec) {
-      rec = {
-        id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        paypalId: id, ref: orderRef(id), status: cap.status,
-        total: Number(amount.value || 0), currency: amount.currency_code || CURRENCY,
-        payer: (cap.payer && (cap.payer.email_address || cap.payer.payer_id)) || '',
-        items: (Array.isArray(pu.items) ? pu.items : []).map(i => ({
-          sku: i.sku, name: i.name, qty: Number(i.quantity || 1),
-          price: Number((i.unit_amount && i.unit_amount.value) || 0),
-        })),
-        created: new Date().toISOString(),
-      };
-      orders.unshift(rec);
-      while (orders.length > 400) orders.pop();
-      await env.LATEXPAPA_DATA.put('orders', JSON.stringify(orders));
-    }
+    // Pull the full order so the dashboard gets the buyer email and the
+    // shipping address PayPal collected at checkout.
+    let full = cap;
+    try { full = await paypalFetch(env, '/v2/checkout/orders/' + encodeURIComponent(id), 'GET'); } catch (e) {}
+    const fullPu = (Array.isArray(full.purchase_units) && full.purchase_units[0]) || pu;
+    const cust = customerOf(full);
+    const ship = shippingOf(full);
+    const rec = await upsertOrder(env, id, {
+      status: 'paid',
+      captureId: (caps && caps.id) || '',
+      total: Number(amount.value || 0), currency: amount.currency_code || CURRENCY,
+      payer: cust.email || (cap.payer && (cap.payer.email_address || cap.payer.payer_id)) || '',
+      customer: cust, shipping: ship,
+      paidAt: new Date().toISOString(),
+      items: (Array.isArray(fullPu.items) && fullPu.items.length ? fullPu.items : (Array.isArray(pu.items) ? pu.items : [])).map(i => ({
+        sku: i.sku, name: i.name, qty: Number(i.quantity || 1),
+        price: Number((i.unit_amount && i.unit_amount.value) || 0),
+      })),
+    }, 'payment captured');
+    const nres = await notifyOrder(env, rec);
+    await saveNotify(env, rec, nres);
     return json({ ok: true, ref: rec.ref, status: cap.status, total: rec.total, currency: rec.currency });
   }
 
@@ -306,6 +529,118 @@ async function handleApi(request, env, url) {
       ok: true, status: ord.status, ref: orderRef(id),
       total: Number((pu.amount && pu.amount.value) || 0),
       currency: (pu.amount && pu.amount.currency_code) || CURRENCY,
+    });
+  }
+
+/* ---------- order dashboard (admin only) ---------- */
+  if (path === '/api/orders' && method === 'GET') {
+    if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
+    const orders = (await readOrders(env)).map(publicOrder);
+    return json({ ok: true, orders, paypal: paypalReady(env), env: paypalEnv(env), notify: notifyChannel(env), notifyLabel: notifyLabel(env) });
+  }
+
+  if (path === '/api/notify-test' && method === 'POST') {
+    if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
+    const chan = notifyChannel(env);
+    if (!chan) return json({ ok: false, channel: '', label: notifyLabel(env), error: 'No alert channel is set up yet.' });
+    const res = await notifyOrder(env, {
+      ref: 'TEST-' + Math.random().toString(36).slice(2, 7).toUpperCase(),
+      items: [{ name: 'Test alert - this is not a real order', qty: 1, price: 199 }],
+      total: 199, currency: CURRENCY,
+      customer: { name: 'LatexPapa dashboard', email: env.NOTIFY_EMAIL || '' },
+      shipping: { address: 'Test only' },
+      note: 'If you can read this, new-order alerts are working.',
+    });
+    return json({ ok: !!res.ok, channel: chan, label: notifyLabel(env), status: res.status || 0, error: res.error || '', email: res.email || null });
+  }
+
+  if (path === '/api/order' && method === 'POST') {
+    if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
+    const body = await request.json().catch(() => ({}));
+    const key = String(body.id || '');
+    if (!key) return json({ ok: false, error: 'Missing order id.' }, 400);
+    const list = await readOrders(env);
+    const at = list.findIndex(o => o.id === key || o.paypalId === key);
+    if (at < 0) return json({ ok: false, error: 'Order not found.' }, 404);
+    const rec = list[at];
+    const now = new Date().toISOString();
+    if (body.remove === true) {
+      list.splice(at, 1);
+      await writeOrders(env, list);
+      return json({ ok: true, removed: true });
+    }
+    if (typeof body.status === 'string' && ORDER_STATUSES.indexOf(body.status) >= 0 && body.status !== rec.status) {
+      rec.status = body.status;
+      if (body.status === 'shipped') rec.shippedAt = now;
+      if (body.status === 'paid') rec.paidAt = rec.paidAt || now;
+      rec.timeline = rec.timeline || [];
+      rec.timeline.push({ at: now, event: 'marked ' + body.status });
+    }
+    for (const k of ['carrier', 'tracking']) {
+      if (typeof body[k] === 'string') rec[k] = body[k].trim().slice(0, 120);
+    }
+    if (typeof body.note === 'string') rec.note = body.note.slice(0, 2000);
+    if (typeof body.shipTo === 'string') rec.shipping = { name: (rec.shipping && rec.shipping.name) || '', address: body.shipTo.slice(0, 400) };
+    rec.updatedAt = now;
+    await writeOrders(env, list);
+    return json({ ok: true, order: publicOrder(rec) });
+  }
+
+  if (path === '/api/orders/sync' && method === 'POST') {
+    if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
+    if (!paypalReady(env)) return json({ ok: false, error: 'PayPal is not configured on this site yet.' }, 503);
+    const list = await readOrders(env);
+    let checked = 0, changed = 0, failed = 0;
+    for (const rec of list) {
+      if (!rec.paypalId) continue;
+      if (rec.status === 'shipped' || rec.status === 'cancelled' || rec.status === 'refunded') continue;
+      if (checked >= 40) break;
+      checked++;
+      try {
+        const ord = await paypalFetch(env, '/v2/checkout/orders/' + encodeURIComponent(rec.paypalId), 'GET');
+        const cust = customerOf(ord);
+        const ship = shippingOf(ord);
+        if (cust.email && cust.email !== rec.payer) { rec.payer = cust.email; changed++; }
+        if (cust.name || ship.address) {
+          if (!rec.customer || !rec.customer.name) { rec.customer = cust; changed++; }
+          if (!rec.shipping || !rec.shipping.address) { rec.shipping = ship; changed++; }
+        }
+        if (ord.status === 'COMPLETED' && rec.status !== 'paid') {
+          rec.status = 'paid';
+          rec.paidAt = rec.paidAt || new Date().toISOString();
+          rec.timeline = rec.timeline || [];
+          rec.timeline.push({ at: new Date().toISOString(), event: 'paypal says COMPLETED' });
+          changed++;
+        } else if (ord.status && /VOIDED|CANCEL/i.test(ord.status) && rec.status === 'awaiting') {
+          rec.status = 'cancelled';
+          changed++;
+        }
+      } catch (e) { failed++; }
+    }
+    if (changed) await writeOrders(env, list);
+    return json({ ok: true, checked, changed, failed });
+  }
+
+  if (path === '/api/orders.csv' && method === 'GET') {
+    if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
+    const orders = await readOrders(env);
+    const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""').replace(/[\r\n]+/g, ' ') + '"';
+    const head = ['Reference', 'Placed', 'Status', 'Customer', 'Email', 'Ship to', 'Items', 'Total', 'Currency', 'Carrier', 'Tracking', 'Customer note', 'PayPal order id'];
+    const rows = orders.map(o => {
+      const po = publicOrder(o);
+      return [
+        po.ref, po.created, po.status, po.customer.name, po.customer.email || po.payer,
+        po.shipping.address, po.items.map(i => i.name + ' x' + i.qty).join('; '),
+        Number(po.total).toFixed(2), po.currency, po.carrier, po.tracking, po.note, po.paypalId,
+      ].map(cell).join(',');
+    });
+    const csv = '\ufeff' + head.map(cell).join(',') + '\r\n' + rows.join('\r\n') + '\r\n';
+    return new Response(csv, {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': 'attachment; filename="latexpapa-orders.csv"',
+        'cache-control': 'no-store',
+      },
     });
   }
 

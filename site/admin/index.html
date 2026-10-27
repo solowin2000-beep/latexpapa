@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -7,12 +7,19 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="stylesheet" href="/assets/style.css">
 <style>
-.adm{max-width:900px;margin:0 auto;padding:28px 20px 80px}
-.adm h1{font-size:1.7rem}
+.adm{max-width:1000px;margin:0 auto;padding:24px 20px 90px}
+.adm h1{font-size:1.6rem}
+.tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:6px 0 22px;padding-bottom:0}
+.grow{flex:1}
+.tab{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);font:inherit;font-size:1rem;font-weight:600;padding:12px 4px;margin-bottom:-1px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .pill{background:var(--accent);color:#fff;font-size:.72rem;font-weight:700;border-radius:100px;padding:1px 8px;display:none}
+.tab .pill.on{display:inline-block}
 .fld{display:block;margin:0 0 16px}
 .fld span{display:block;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
 .fld input,.fld select,.fld textarea{width:100%;background:#101013;border:1px solid var(--line2);color:var(--ink);border-radius:10px;padding:11px 13px;font:inherit;font-size:.95rem}
-.fld textarea{min-height:120px;font-family:ui-monospace,Consolas,monospace;font-size:.86rem}
+.fld textarea{min-height:110px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:640px){.row2{grid-template-columns:1fr}}
 .drop{border:1px dashed var(--line2);border-radius:12px;padding:22px;text-align:center;color:var(--muted);cursor:pointer;transition:.2s}
@@ -31,21 +38,52 @@
 .msg{padding:11px 14px;border-radius:10px;margin:0 0 16px;font-size:.9rem;display:none}
 .msg.ok{display:block;background:rgba(48,180,110,.12);border:1px solid rgba(48,180,110,.4);color:#8ee6b4}
 .msg.bad{display:block;background:rgba(216,32,63,.12);border:1px solid rgba(216,32,63,.4);color:#ff8fa3}
-.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:20px 0}
-.bar .grow{flex:1}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 18px}
 .hint{font-size:.82rem;color:var(--muted);margin-top:6px}
-.btn.sm{padding:.55em 1.05em;font-size:.85rem}
+.btn.sm{padding:.5em 1em;font-size:.84rem}
 .btn.dan{background:transparent;border-color:var(--line2);color:var(--ink2)}
 .btn.dan:hover{border-color:var(--accent);color:var(--accent2);background:transparent}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:#101013;border:1px solid var(--line2);color:var(--ink2);border-radius:100px;padding:.45em 1em;font:inherit;font-size:.84rem;cursor:pointer}
+.chip.on{border-color:var(--accent);color:#fff;background:rgba(216,32,63,.16)}
+.ord{border:1px solid var(--line);border-radius:14px;background:var(--panel);margin:0 0 12px;overflow:hidden}
+.ord-top{display:grid;grid-template-columns:1.1fr 1.5fr auto auto auto;gap:14px;align-items:center;padding:14px 16px}
+.ord-top > div{min-width:0}
+.ord-top b{display:block;font-size:.95rem;font-weight:600}
+.ord-top span{display:block;font-size:.78rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ord-tot{font-family:var(--serif);font-size:1.15rem;text-align:right;white-space:nowrap}
+.badge{font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:100px;padding:4px 10px;white-space:nowrap;border:1px solid transparent}
+.badge.awaiting{background:rgba(230,180,60,.14);color:#f0c75e;border-color:rgba(230,180,60,.4)}
+.badge.paid{background:rgba(48,180,110,.14);color:#8ee6b4;border-color:rgba(48,180,110,.4)}
+.badge.shipped{background:rgba(90,150,240,.14);color:#9dc0ff;border-color:rgba(90,150,240,.4)}
+.badge.cancelled,.badge.refunded{background:rgba(150,150,160,.14);color:#b9b9c4;border-color:rgba(150,150,160,.35)}
+.ord-body{border-top:1px solid var(--line);padding:16px;display:grid;gap:18px}
+.ord-body[hidden]{display:none}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:.9rem}
+.kv dt{color:var(--muted);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;padding-top:2px}
+.kv dd{margin:0;word-break:break-word}
+table.lines{width:100%;border-collapse:collapse;font-size:.9rem}
+table.lines th{text-align:left;color:var(--muted);font-size:.74rem;letter-spacing:.07em;text-transform:uppercase;font-weight:600;padding:0 0 8px}
+table.lines td{padding:7px 0;border-top:1px solid var(--line)}
+table.lines td:last-child,table.lines th:last-child{text-align:right}
+.oacts{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.oacts .grow{flex:1}
+.tl{font-size:.8rem;color:var(--muted);display:grid;gap:4px}
+@media(max-width:760px){
+  .ord-top{grid-template-columns:1fr auto;gap:8px 12px}
+  .ord-tot{text-align:left}
+  .kv{grid-template-columns:1fr}
+  .kv dt{padding-top:8px}
+}
 </style>
 </head>
 <body>
-<div class="note"><b>LatexPapa admin</b> · Add and edit products · <a href="/">Back to the shop</a></div>
+<div class="note"><b>LatexPapa admin</b> · Orders, shipping and products · <a href="/">Back to the shop</a></div>
 <div class="adm">
 
   <section id="gate">
     <h1>Sign in</h1>
-    <p class="lead">Enter the admin password to manage products.</p>
+    <p class="lead">Enter the admin password to see orders and manage products.</p>
     <div class="msg" id="gateMsg"></div>
     <form id="loginForm">
       <label class="fld"><span>Password</span><input type="password" id="pw" autocomplete="current-password" required></label>
@@ -54,39 +92,67 @@
   </section>
 
   <section id="panel" style="display:none">
-    <div class="bar">
-      <h1 style="margin:0;flex:1">Products</h1>
-      <button class="btn sm" id="newBtn" type="button">+ New product</button>
+    <div class="tabs">
+      <button class="tab on" type="button" data-tab="orders">Orders <span class="pill" id="pillOrders">0</span></button>
+      <button class="tab" type="button" data-tab="products">Products</button>
+      <span class="grow"></span>
       <button class="btn sm dan" id="outBtn" type="button">Sign out</button>
     </div>
-    <div class="msg" id="msg"></div>
 
-    <form id="pform" style="display:none">
-      <input type="hidden" id="pid">
-      <label class="fld"><span>Product name</span><input id="pname" required placeholder="e.g. Latex Catsuit — Aurora"></label>
-      <div class="row2">
-        <label class="fld"><span>Price (USD)</span><input id="pprice" type="number" step="0.01" min="0" required placeholder="129.00"></label>
-        <label class="fld"><span>Compare-at price (optional)</span><input id="pwas" type="number" step="0.01" min="0" placeholder="159.00"></label>
-      </div>
-      <label class="fld"><span>Category</span><select id="pcat"></select></label>
-      <label class="fld"><span>Short description for Google (max 160 chars)</span><input id="pmeta" maxlength="200" placeholder="Made-to-measure latex catsuit in 0.40mm natural latex, any colour, free worldwide shipping."></label>
-      <label class="fld"><span>Full description (HTML allowed)</span><textarea id="pdesc" placeholder="&lt;p&gt;Describe the piece…&lt;/p&gt;"></textarea></label>
-
-      <label class="fld"><span>Photos</span></label>
-      <div class="drop" id="drop">Tap to choose photos, or drag them here<br><span class="hint">JPG / PNG / WebP, up to 6 MB each</span></div>
-      <input type="file" id="file" accept="image/*" multiple hidden>
-      <div class="shots" id="shots"></div>
-
+    <div id="view-orders">
       <div class="bar">
-        <button class="btn" type="submit" id="saveBtn">Save product</button>
-        <button class="btn ghost sm" type="button" id="cancelBtn">Cancel</button>
+        <div class="chips" id="ofilter">
+          <button class="chip on" type="button" data-f="all">All</button>
+          <button class="chip" type="button" data-f="awaiting">Awaiting payment</button>
+          <button class="chip" type="button" data-f="paid">Paid · to make</button>
+          <button class="chip" type="button" data-f="shipped">Shipped</button>
+        </div>
         <span class="grow"></span>
-        <button class="btn dan sm" type="button" id="delBtn" style="display:none">Delete</button>
+        <button class="btn sm ghost" id="notifyBtn" type="button">Test alert</button>
+        <button class="btn sm ghost" id="syncBtn" type="button">Check PayPal</button>
+        <button class="btn sm ghost" id="csvBtn" type="button">Export CSV</button>
+        <button class="btn sm" id="orefresh" type="button">Refresh</button>
       </div>
-      <p class="hint">Saved products appear on the website right away. To have them baked into the main catalogue pages and sitemap, ask Codex to rebuild.</p>
-    </form>
+      <div class="msg" id="omsg"></div>
+      <p class="hint" id="notifyState" style="margin:0 0 14px"></p>
+      <div id="olist"></div>
+      <p class="hint" style="margin-top:18px">Every checkout is saved the moment it starts, so an order is never lost even if a buyer closes the tab. Once a payment clears, PayPal confirms it here and the status turns green. Fill in the courier and tracking number, then press <b>Mark shipped</b> — the customer keeps their order reference.</p>
+    </div>
 
-    <div class="list" id="list"></div>
+    <div id="view-products" style="display:none">
+      <div class="bar">
+        <h1 style="margin:0;flex:1">Products</h1>
+        <button class="btn sm" id="newBtn" type="button">+ New product</button>
+      </div>
+      <div class="msg" id="msg"></div>
+
+      <form id="pform" style="display:none">
+        <input type="hidden" id="pid">
+        <label class="fld"><span>Product name</span><input id="pname" required placeholder="e.g. Latex Catsuit — Aurora"></label>
+        <div class="row2">
+          <label class="fld"><span>Price (USD)</span><input id="pprice" type="number" step="0.01" min="0" required placeholder="129.00"></label>
+          <label class="fld"><span>Compare-at price (optional)</span><input id="pwas" type="number" step="0.01" min="0" placeholder="159.00"></label>
+        </div>
+        <label class="fld"><span>Category</span><select id="pcat"></select></label>
+        <label class="fld"><span>Short description for Google (max 160 chars)</span><input id="pmeta" maxlength="200" placeholder="Made-to-measure latex catsuit in 0.40mm natural latex, any colour, free worldwide shipping."></label>
+        <label class="fld"><span>Full description (HTML allowed)</span><textarea id="pdesc"></textarea></label>
+
+        <label class="fld"><span>Photos</span></label>
+        <div class="drop" id="drop">Tap to choose photos, or drag them here<br><span class="hint">JPG / PNG / WebP, up to 6 MB each. The first photo is the main one.</span></div>
+        <input type="file" id="file" accept="image/*" multiple hidden>
+        <div class="shots" id="shots"></div>
+
+        <div class="bar" style="margin-top:18px">
+          <button class="btn" type="submit" id="saveBtn">Save product</button>
+          <button class="btn ghost sm" type="button" id="cancelBtn">Cancel</button>
+          <span class="grow"></span>
+          <button class="btn dan sm" type="button" id="delBtn" style="display:none">Delete</button>
+        </div>
+        <p class="hint">Products you add here appear on the website immediately. Now and then ask me to rebuild so they are also baked into the catalogue pages and the sitemap.</p>
+      </form>
+
+      <div class="list" id="list"></div>
+    </div>
   </section>
 </div>
 
@@ -96,13 +162,11 @@
   var $ = function (id) { return document.getElementById(id); };
   var images = [];
   var current = null;
+  var ORDERS = [];
+  var ofilter = 'all';
 
-  function note(el, text, bad) {
-    el.textContent = text;
-    el.className = 'msg ' + (bad ? 'bad' : 'ok');
-  }
+  function note(el, text, bad) { el.textContent = text; el.className = 'msg ' + (bad ? 'bad' : 'ok'); }
   function hide(el) { el.className = 'msg'; }
-
   function api(path, opts) {
     opts = opts || {};
     opts.credentials = 'same-origin';
@@ -112,7 +176,181 @@
     }
     return fetch(path, opts).then(function (r) { return r.json().catch(function () { return {}; }); });
   }
+  function money(v) { return '$' + Number(v || 0).toFixed(2); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function when(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  var LABEL = { awaiting: 'Awaiting payment', paid: 'Paid · to make', shipped: 'Shipped', cancelled: 'Cancelled', refunded: 'Refunded' };
 
+  /* ---------------- tabs ---------------- */
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) {
+    t.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (o) { o.classList.remove('on'); });
+      t.classList.add('on');
+      $('view-orders').style.display = t.getAttribute('data-tab') === 'orders' ? '' : 'none';
+      $('view-products').style.display = t.getAttribute('data-tab') === 'products' ? '' : 'none';
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#ofilter .chip'), function (c) {
+    c.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('#ofilter .chip'), function (o) { o.classList.remove('on'); });
+      c.classList.add('on');
+      ofilter = c.getAttribute('data-f');
+      renderOrders();
+    });
+  });
+
+  /* ---------------- orders ---------------- */
+  function renderOrders() {
+    var box = $('olist');
+    var list = ORDERS.filter(function (o) { return ofilter === 'all' || o.status === ofilter; });
+    if (!list.length) {
+      box.innerHTML = '<p class="hint" style="padding:14px 0">No orders here yet. They appear the moment somebody starts a checkout.</p>';
+      return;
+    }
+    box.innerHTML = list.map(function (o) {
+      var items = (o.items || []).map(function (i) { return esc(i.name) + ' &times; ' + i.qty; }).join('<br>');
+      var n = (o.items || []).reduce(function (s, i) { return s + Number(i.qty || 0); }, 0);
+      return '<article class="ord" data-id="' + esc(o.id) + '">' +
+        '<div class="ord-top">' +
+          '<div><b>' + esc(o.ref) + '</b><span>' + esc(when(o.created)) + ' · ' + n + ' item' + (n === 1 ? '' : 's') + '</span></div>' +
+          '<div><b>' + esc((o.customer && o.customer.name) || '—') + '</b><span>' + esc((o.customer && o.customer.email) || o.payer || 'no email yet') + '</span></div>' +
+          '<div class="ord-tot">' + money(o.total) + '</div>' +
+          '<div><span class="badge ' + esc(o.status) + '">' + esc(LABEL[o.status] || o.status) + '</span></div>' +
+          '<div><button class="btn sm ghost" type="button" data-toggle="' + esc(o.id) + '">Open</button></div>' +
+        '</div>' +
+        '<div class="ord-body" id="ob-' + esc(o.id) + '" hidden>' +
+          '<div><table class="lines"><thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead><tbody>' +
+            (o.items || []).map(function (i) {
+              return '<tr><td>' + esc(i.name) + '</td><td>' + i.qty + '</td><td>' + money(i.price) + '</td></tr>';
+            }).join('') +
+            '<tr><td><b>Total</b></td><td></td><td><b>' + money(o.total) + ' ' + esc(o.currency) + '</b></td></tr>' +
+          '</tbody></table></div>' +
+          '<dl class="kv">' +
+            '<dt>Customer</dt><dd>' + esc((o.customer && o.customer.name) || '—') + (o.customer && o.customer.email ? ' &lt;' + esc(o.customer.email) + '&gt;' : '') + '</dd>' +
+            '<dt>Ship to</dt><dd>' + (o.shipping && o.shipping.address ? esc(o.shipping.address) : '<i>PayPal has not sent an address yet</i>') + '</dd>' +
+            '<dt>Customer note</dt><dd>' + (o.note ? esc(o.note) : '<i>none</i>') + '</dd>' +
+            '<dt>PayPal order</dt><dd style="font-family:ui-monospace,Consolas,monospace;font-size:.82rem">' + esc(o.paypalId) + '</dd>' +
+            '<dt>Alert sent</dt><dd>' + (o.notify ? (o.notify.ok ? 'sent' : 'failed') + ' &middot; ' + esc(o.notify.channel || '-') + ' &middot; ' + esc(when(o.notify.at)) + (o.notify.error ? '<br><span style="font-size:.78rem;opacity:.75">' + esc(o.notify.error) + '</span>' : '') : '<i>not sent yet</i>') + '</dd>' +
+            '<dt>History</dt><dd class="tl">' + (o.timeline || []).map(function (t) { return esc(when(t.at) + ' — ' + t.event); }).join('<br>') + '</dd>' +
+          '</dl>' +
+          '<div class="row2">' +
+            '<label class="fld"><span>Courier</span><input id="car-' + esc(o.id) + '" value="' + esc(o.carrier) + '" placeholder="DHL / UPS / FedEx / China Post"></label>' +
+            '<label class="fld"><span>Tracking number</span><input id="trk-' + esc(o.id) + '" value="' + esc(o.tracking) + '" placeholder="e.g. 1234567890"></label>' +
+          '</div>' +
+          '<div class="oacts">' +
+            '<button class="btn sm" type="button" data-save="' + esc(o.id) + '">Save shipping</button>' +
+            '<button class="btn sm ghost" type="button" data-mark="' + esc(o.id) + '" data-to="shipped">Mark shipped</button>' +
+            '<button class="btn sm ghost" type="button" data-mark="' + esc(o.id) + '" data-to="paid">Mark paid</button>' +
+            '<button class="btn sm ghost" type="button" data-mark="' + esc(o.id) + '" data-to="cancelled">Cancel</button>' +
+            '<span class="grow"></span>' +
+            '<button class="btn sm dan" type="button" data-del="' + esc(o.id) + '">Delete</button>' +
+          '</div>' +
+        '</div>' +
+      '</article>';
+    }).join('');
+    // keep the open panels open
+    openIds.forEach(function (id) {
+      var b = $('ob-' + id);
+      if (b) b.hidden = false;
+    });
+  }
+
+  var openIds = [];
+  document.addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (!t || !t.closest) return;
+    var hit;
+    if ((hit = t.closest('[data-toggle]'))) {
+      var id = hit.getAttribute('data-toggle');
+      var body = $('ob-' + id);
+      if (!body) return;
+      body.hidden = !body.hidden;
+      openIds = body.hidden ? openIds.filter(function (x) { return x !== id; }) : openIds.concat([id]);
+      return;
+    }
+    if ((hit = t.closest('[data-save]'))) {
+      var sid = hit.getAttribute('data-save');
+      updateOrder({ id: sid, carrier: ($('car-' + sid) || {}).value || '', tracking: ($('trk-' + sid) || {}).value || '' });
+      return;
+    }
+    if ((hit = t.closest('[data-mark]'))) {
+      updateOrder({ id: hit.getAttribute('data-mark'), status: hit.getAttribute('data-to') });
+      return;
+    }
+    if ((hit = t.closest('[data-del]'))) {
+      var did = hit.getAttribute('data-del');
+      if (confirm('Delete this order from the dashboard? PayPal keeps its own copy.')) updateOrder({ id: did, remove: true });
+      return;
+    }
+  });
+
+  function updateOrder(patch) {
+    api('/api/order', { method: 'POST', body: patch }).then(function (r) {
+      if (r && r.ok) {
+        note($('omsg'), 'Saved.', false);
+        loadOrders();
+      } else {
+        note($('omsg'), (r && r.error) || 'Could not save that order.', true);
+      }
+    });
+  }
+
+  function loadOrders() {
+    api('/api/orders').then(function (r) {
+      if (!r.ok) { $('gate').style.display = 'block'; $('panel').style.display = 'none'; return $('panel'); }
+      $('gate').style.display = 'none';
+      $('panel').style.display = 'block';
+      ORDERS = r.orders || [];
+      var nstate = $('notifyState');
+      if (nstate) nstate.textContent = (r.notifyLabel && r.notifyLabel !== 'off') ? ('New-order alerts: ON - ' + r.notifyLabel) : 'New-order alerts: OFF - no alert channel is set up yet.';
+      var nouveau = ORDERS.filter(function (o) { return o.status === 'awaiting'; }).length;
+      var pill = $('pillOrders');
+      pill.textContent = String(nouveau);
+      pill.className = 'pill' + (nouveau ? ' on' : '');
+      renderOrders();
+    });
+  }
+
+  $('orefresh').addEventListener('click', loadOrders);
+  $('syncBtn').addEventListener('click', function () {
+    $('syncBtn').disabled = true;
+    note($('omsg'), 'Asking PayPal for the latest status…', false);
+    api('/api/orders/sync', { method: 'POST' }).then(function (r) {
+      $('syncBtn').disabled = false;
+      if (r && r.ok) { note($('omsg'), 'Checked ' + r.checked + ' order(s), updated ' + r.changed + '.', false); loadOrders(); }
+      else note($('omsg'), (r && r.error) || 'PayPal could not be reached.', true);
+    });
+  });
+  $('csvBtn').addEventListener('click', function () {
+    fetch('/api/orders.csv', { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) throw new Error('no');
+      return r.blob();
+    }).then(function (b) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(b);
+      a.download = 'latexpapa-orders.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+    }).catch(function () { note($('omsg'), 'Could not export the orders.', true); });
+  });
+  $('notifyBtn').addEventListener('click', function () {
+    $('notifyBtn').disabled = true;
+    note($('omsg'), 'Sending a test alert...', false);
+    api('/api/notify-test', { method: 'POST' }).then(function (r) {
+      $('notifyBtn').disabled = false;
+      if (r && r.ok) note($('omsg'), 'Test alert sent via ' + (r.label || r.channel) + ' - check your phone or inbox.', false);
+      else note($('omsg'), 'Test failed: ' + ((r && r.error) || 'no alert channel is set up yet.'), true);
+      loadOrders();
+    }).catch(function () { $('notifyBtn').disabled = false; note($('omsg'), 'Could not send the test alert.', true); });
+  });
+
+  /* ---------------- products ---------------- */
   function fillCats() {
     var sel = $('pcat');
     sel.innerHTML = '';
@@ -122,7 +360,6 @@
       sel.appendChild(o);
     });
   }
-
   function renderShots() {
     var box = $('shots');
     box.innerHTML = '';
@@ -137,17 +374,15 @@
       box.appendChild(d);
     });
   }
-
   async function upload(files) {
     for (var i = 0; i < files.length; i++) {
       var fd = new FormData();
       fd.append('file', files[i]);
       var r = await api('/api/upload', { method: 'POST', body: fd });
       if (r && r.ok) { images.push(r.url); renderShots(); }
-      else { alert((r && r.error) || 'Upload failed'); }
+      else alert((r && r.error) || 'Upload failed');
     }
   }
-
   function showForm(p) {
     current = p || null;
     $('pid').value = p ? p.id : '';
@@ -164,19 +399,18 @@
     window.scrollTo(0, 0);
     hide($('msg'));
   }
-
   function renderList(items) {
     var box = $('list');
     box.innerHTML = '';
     if (!items.length) {
-      box.innerHTML = '<p class="hint" style="padding:16px 0">Nothing added yet. Products you add here show up on the site immediately.</p>';
+      box.innerHTML = '<p class="hint" style="padding:16px 0">Nothing added here yet. Products you add show up on the site immediately.</p>';
       return;
     }
     items.forEach(function (p) {
       var d = document.createElement('div');
       d.className = 'it';
-      d.innerHTML = '<img src="' + ((p.images && p.images[0]) || '/assets/style.css') + '" alt="">' +
-        '<div class="meta"><b>' + p.name + '</b><span>' + (p.categoryName || p.category || '') + ' · $' + Number(p.price || 0).toFixed(2) + '</span></div>';
+      d.innerHTML = '<img src="' + ((p.images && p.images[0]) || '/assets/favicon.svg') + '" alt="">' +
+        '<div class="meta"><b>' + esc(p.name) + '</b><span>' + esc(p.categoryName || p.category || '') + ' · $' + Number(p.price || 0).toFixed(2) + '</span></div>';
       var e = document.createElement('button');
       e.className = 'btn sm ghost'; e.type = 'button'; e.textContent = 'Edit';
       e.onclick = function () { showForm(p); };
@@ -184,8 +418,7 @@
       box.appendChild(d);
     });
   }
-
-  async function load() {
+  async function loadProducts() {
     var r = await api('/api/list');
     if (!r.ok) { $('gate').style.display = 'block'; $('panel').style.display = 'none'; return; }
     $('gate').style.display = 'none';
@@ -196,18 +429,15 @@
   $('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     var r = await api('/api/login', { method: 'POST', body: { password: $('pw').value } });
-    if (r.ok) { $('pw').value = ''; hide($('gateMsg')); load(); }
+    if (r.ok) { $('pw').value = ''; hide($('gateMsg')); loadOrders(); loadProducts(); }
     else note($('gateMsg'), (r && r.error) || 'Sign in failed', true);
   });
-
   $('outBtn').addEventListener('click', async function () {
     await api('/api/logout', { method: 'POST' });
     location.reload();
   });
-
   $('newBtn').addEventListener('click', function () { showForm(null); });
   $('cancelBtn').addEventListener('click', function () { $('pform').style.display = 'none'; hide($('msg')); });
-
   $('pform').addEventListener('submit', async function (e) {
     e.preventDefault();
     var catSel = $('pcat');
@@ -228,17 +458,15 @@
     $('saveBtn').disabled = true;
     var r = await api('/api/save', { method: 'POST', body: prod });
     $('saveBtn').disabled = false;
-    if (r.ok) { $('pid').value = r.product.id; await load(); showForm(r.product); note($('msg'), 'Saved \u2014 this product is live on the site now.', false); }
+    if (r.ok) { $('pid').value = r.product.id; await loadProducts(); showForm(r.product); note($('msg'), 'Saved \u2014 this product is live on the site now.', false); }
     else note($('msg'), (r && r.error) || 'Could not save', true);
   });
-
   $('delBtn').addEventListener('click', async function () {
     var id = $('pid').value;
     if (!id || !confirm('Delete this product?')) return;
     var r = await api('/api/delete', { method: 'POST', body: { id: id } });
-    if (r.ok) { $('pform').style.display = 'none'; note($('msg'), 'Deleted.', false); load(); }
+    if (r.ok) { $('pform').style.display = 'none'; note($('msg'), 'Deleted.', false); loadProducts(); }
   });
-
   $('drop').addEventListener('click', function () { $('file').click(); });
   $('file').addEventListener('change', function () { upload(this.files); this.value = ''; });
   ['dragenter', 'dragover'].forEach(function (ev) {
@@ -250,7 +478,8 @@
   $('drop').addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) upload(e.dataTransfer.files); });
 
   fillCats();
-  load();
+  loadOrders();
+  loadProducts();
 })();
 </script>
 </body>

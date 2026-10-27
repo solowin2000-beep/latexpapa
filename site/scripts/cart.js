@@ -168,7 +168,7 @@
             show('<div class="okbox"><h3 style="margin-bottom:10px">Payment received</h3>' +
               '<p style="margin:0 0 12px">Your order reference is <span class="ref">' + j.ref + '</span> &middot; total ' + money(j.total) + ' ' + (j.currency || 'USD') + '.</p>' +
               '<p style="margin:0 0 8px"><b>Next step:</b> send your measurements and we will start cutting. Nine numbers for a full body piece.</p>' +
-              '<p style="margin:0">Email <a href="mailto:latexpapa@latexpapa.com">latexpapa@latexpapa.com</a> or message us on WhatsApp &mdash; quote your reference.</p></div>');
+              '<p style="margin:0">Email <a href="mailto:latexpapa@latexpapa.com">latexpapa@latexpapa.com</a> or message us on WhatsApp or Telegram (@latexpapa391) &mdash; quote your reference.</p></div>');
           } else {
             show('<div class="paynotice">' + ((j && j.error) || 'We could not confirm that payment.') +
               '<br><br>If money has left your account, email <a href="mailto:latexpapa@latexpapa.com">latexpapa@latexpapa.com</a> and we will sort it out.</div>');
@@ -200,7 +200,7 @@
         var total = arr.reduce(function (s, x) { return s + Number((CAT[x.slug] || {}).p || 0) * x.qty; }, 0);
         var body = 'Hello LatexPapa,\n\nI would like to order:\n' + list + '\n\nItems: ' + money(total) + '\n\nMy measurements:\n';
         var mail = 'mailto:latexpapa@latexpapa.com?subject=' + encodeURIComponent('Order from latexpapa.com') + '&body=' + encodeURIComponent(body);
-        var wa = 'https://wa.me/8615622227358?text=' + encodeURIComponent(body);
+        var wa = 'https://wa.me/8613515054915?text=' + encodeURIComponent(body);
         show('<div class="paynotice"><b>Pay by email or WhatsApp.</b><br>Send us this list and we will reply with a payment link and your measurement sheet. The items are already filled in &mdash; just add your measurements.</div>' +
           '<a class="btn block" style="margin-top:16px" href="' + mail + '">Email us this order</a>' +
           '<a class="btn block ghost" style="margin-top:10px" href="' + wa + '" target="_blank" rel="noopener">Send it on WhatsApp</a>');
@@ -212,7 +212,9 @@
       if (payBtn.disabled) return;
       payBtn.disabled = true;
       payBtn.textContent = 'Opening PayPal…';
-      fetch('/api/pay/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items: read() }) })
+      var noteEl = document.getElementById('co-note');
+      var note = noteEl && noteEl.value ? String(noteEl.value).slice(0, 1200) : '';
+      fetch('/api/pay/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items: read(), note: note }) })
         .then(function (r) { return r.json(); })
         .then(function (j) {
           if (j && j.ok && j.approvalUrl) { window.location.href = j.approvalUrl; return; }

@@ -16,7 +16,11 @@ const TOTAL = products.length;
 const BRAND = 'LatexPapa';
 const LEGAL = 'LATEXPAPA';
 const EMAIL = 'latexpapa@latexpapa.com';
-const WHATSAPP = '+8615622227358';
+const WHATSAPP = '+8613515054915';
+const WA_HANDLE = '@latexpapa391';
+const WA_URL = 'https://wa.me/8613515054915';
+const TELEGRAM_HANDLE = '@latexpapa391';
+const TELEGRAM_URL = 'https://t.me/latexpapa391';
 const PRODUCTION = '2 weeks';
 const SHIPPING = 'Free worldwide';
 
@@ -120,7 +124,7 @@ function footer() {
     <div>
       <a class="logo" href="/">Latex<span>Papa</span></a>
       <p class="muted" style="max-width:30ch;margin-top:12px">Made-to-measure latex clothing, handmade in 0.25mm–1.00mm natural latex. Any colour, cut to your measurements, shipped worldwide.</p>
-      <p class="muted" style="font-size:.86rem">${e(EMAIL)}<br>WhatsApp ${e(WHATSAPP)}</p>
+      <p class="muted" style="font-size:.86rem">${e(EMAIL)}<br>WhatsApp <a href="${WA_URL}" target="_blank" rel="noopener">${e(WA_HANDLE)}</a> · Telegram <a href="${TELEGRAM_URL}" target="_blank" rel="noopener">${e(TELEGRAM_HANDLE)}</a></p>
     </div>
     <div><h4>Shop</h4><ul>${categories.map(c => `<li><a href="/${c.slug}/">${esc2(c.name)}</a></li>`).join('')}</ul></div>
     <div><h4>Help</h4><ul>
@@ -219,7 +223,7 @@ ${ADDITIONS_JS}
 const ORG = {
   '@context': 'https://schema.org', '@type': 'Organization',
   name: LEGAL, alternateName: BRAND, url: SITE,
-  email: EMAIL, telephone: WHATSAPP,
+  email: EMAIL, telephone: WHATSAPP, sameAs: [WA_URL, TELEGRAM_URL],
   address: { '@type': 'PostalAddress', addressLocality: 'Hong Kong', addressCountry: 'HK' },
   contactPoint: [{ '@type': 'ContactPoint', contactType: 'customer support', email: EMAIL, telephone: WHATSAPP, availableLanguage: ['en'] }],
 };
@@ -234,7 +238,7 @@ function productLd(p, c) {
   return {
     '@context': 'https://schema.org', '@type': 'Product',
     name: p.name, sku: p.id.toUpperCase(), url: `${SITE}/product/${p.slug}/`,
-    image: p.images.slice(0, 6).map(t => `https://d24naddg1rhy2p.cloudfront.net/283318/${t}`),
+    image: p.images.slice(0, 6).map((t, i) => { const s = imgSrc(p, i); return s && s.startsWith('/') ? SITE + s : s; }).filter(Boolean),
     description: plain(p.metaDescription || p.descriptionHtml).slice(0, 900),
     category: c ? c.name : undefined,
     brand: { '@type': 'Brand', name: BRAND },
@@ -920,14 +924,14 @@ writePage('/about/', layout({
       <li>It leaves in plain, unmarked packaging with tracking, shipping free worldwide.</li>
     </ul>
     <h2>Where we are</h2>
-    <p>${LEGAL} operates from Hong Kong and ships internationally. Questions before ordering are welcome — email <a href="mailto:${EMAIL}">${EMAIL}</a> or message us on WhatsApp at ${WHATSAPP}.</p>
+    <p>${LEGAL} operates from Hong Kong and ships internationally. Questions before ordering are welcome — email <a href="mailto:${EMAIL}">${EMAIL}</a> or message us on WhatsApp or Telegram at ${WA_HANDLE}.</p>
   </div></div></section>`,
 }));
 
 // CONTACT
 writePage('/contact/', layout({
   title: `Contact LatexPapa — Custom Latex Orders | ${BRAND}`,
-  description: 'Ask about a custom latex piece, colours, sizing or an existing order. Email latexpapa@latexpapa.com or message us on WhatsApp.',
+  description: 'Ask about a custom latex piece, colours, sizing or an existing order. Email latexpapa@latexpapa.com, or message us on WhatsApp or Telegram at @latexpapa391.',
   url: '/contact/', active: null,
   jsonLd: [ORG, crumbs([{ name: 'Home', url: '/' }, { name: 'Contact', url: '/contact/' }]), {
     '@context': 'https://schema.org', '@type': 'ContactPage', name: 'Contact LatexPapa', url: `${SITE}/contact/`,
@@ -940,7 +944,7 @@ writePage('/contact/', layout({
   </div></section>
   <section><div class="wrap"><div class="grid g3">
     <div class="tile"><h3>Email</h3><p>Best for measurements, order changes and anything with an attachment.</p><p style="margin-top:12px"><a class="btn ghost" href="mailto:${EMAIL}?subject=Latex%20order%20enquiry">${EMAIL}</a></p></div>
-    <div class="tile"><h3>WhatsApp</h3><p>Fastest for quick questions, colour photos and delivery updates.</p><p style="margin-top:12px"><a class="btn ghost" href="https://wa.me/${WHATSAPP.replace(/[^0-9]/g, '')}">${WHATSAPP}</a></p></div>
+    <div class="tile"><h3>WhatsApp &amp; Telegram</h3><p>Fastest for quick questions, colour photos and delivery updates. Both use the same handle: <b>${WA_HANDLE}</b>.</p><p style="margin-top:12px"><a class="btn ghost" href="${WA_URL}" target="_blank" rel="noopener">WhatsApp</a></p><p style="margin-top:8px"><a class="btn ghost" href="${TELEGRAM_URL}" target="_blank" rel="noopener">Telegram</a></p></div>
     <div class="tile"><h3>Response time</h3><p>We reply to most messages within one working day. Measurement checks are done before cutting, so nothing is rushed.</p></div>
   </div>
   <div class="prose" style="margin-top:44px">
@@ -1056,7 +1060,7 @@ writePage('/custom-latex/', layout({
     <p class="eyebrow">Custom design</p>
     <h1>Bring us a design, we will cut it in latex</h1>
     <p class="lead">Everything on this site is already made to measure. This page is for the pieces that are not on the site yet — a sketch, a photo from a shoot, a costume, a two-piece you have in mind.</p>
-    <div class="hero-actions"><a class="btn" href="mailto:${EMAIL}?subject=Custom%20latex%20design">Send your idea</a><a class="btn ghost" href="https://wa.me/${WHATSAPP.replace(/[^0-9]/g, '')}">WhatsApp us</a></div>
+    <div class="hero-actions"><a class="btn" href="mailto:${EMAIL}?subject=Custom%20latex%20design">Send your idea</a><a class="btn ghost" href="${WA_URL}" target="_blank" rel="noopener">WhatsApp us</a><a class="btn ghost" href="${TELEGRAM_URL}" target="_blank" rel="noopener">Telegram us</a></div>
   </div></section>
   <section><div class="wrap"><div class="tiles">
     <div class="tile"><h3>1 · Send the idea</h3><p>A photo, a sketch, a screenshot or a link. Notes on colour, thickness and where zips should go are useful but not essential.</p></div>
@@ -1141,7 +1145,7 @@ writePage('/wholesale/', layout({
   <div class="prose" style="margin-top:44px">
     <h2>What to include in your enquiry</h2>
     <ul><li>Design or reference (a link to a product page is fine)</li><li>Quantity per size and colour</li><li>Thickness</li><li>Deadline</li><li>Delivery country</li></ul>
-    <p>Email <a href="mailto:${EMAIL}">${EMAIL}</a> or WhatsApp ${WHATSAPP}. We will confirm price, production window and shipping before you commit.</p>
+    <p>Email <a href="mailto:${EMAIL}">${EMAIL}</a>, or message us on WhatsApp or Telegram at ${WA_HANDLE}. We will confirm price, production window and shipping before you commit.</p>
   </div></div></section>`,
 }));
 
@@ -1164,7 +1168,7 @@ writePage('/track-order/', layout({
   </div>
   <div class="prose" style="margin-top:44px">
     <h2>Need help</h2>
-    <p>Email <a href="mailto:${EMAIL}?subject=Order%20tracking">${EMAIL}</a> or WhatsApp ${WHATSAPP} with your order number. We answer most messages within one working day.</p>
+    <p>Email <a href="mailto:${EMAIL}?subject=Order%20tracking">${EMAIL}</a>, or message us on WhatsApp or Telegram at ${WA_HANDLE} with your order number. We answer most messages within one working day.</p>
   </div></div></section>`,
 }));
 
@@ -1230,13 +1234,17 @@ writePage('/checkout/', layout({
           <a class="muted" href="/cart/" style="font-size:.9rem">Edit cart</a>
         </div>
       </div>
+      <label class="meas" for="co-note"><span>Your measurements or notes (optional)</span>
+        <textarea id="co-note" rows="4" placeholder="Height, bust, waist, hips, inside leg — or just tell us what you would like. We send a full measuring sheet after payment."></textarea>
+        <p>Not sure yet? Leave it blank — we email a measuring guide as soon as your order lands.</p>
+      </label>
       <div id="co-state" style="margin-top:22px"></div>
     </div>
     <aside class="panel">
       <h3 style="margin-bottom:14px">After payment</h3>
       <ol class="steps">
         <li>You get an order reference on this page.</li>
-        <li>Email or WhatsApp us your nine measurements — the <a href="/measure-guide/">measuring guide</a> shows where the tape goes.</li>
+        <li>Email, WhatsApp or Telegram us your nine measurements (${WA_HANDLE}) — the <a href="/measure-guide/">measuring guide</a> shows where the tape goes.</li>
         <li>We confirm the numbers, then cut. Production is ${PRODUCTION}, then free tracked shipping.</li>
       </ol>
       <button class="btn block" type="button" id="co-pay" style="margin-top:18px">Pay with PayPal</button>
@@ -1331,7 +1339,7 @@ const cats = categories.map(c => `- [${c.title}](${SITE}/${c.slug}/): ${c.desc}`
 fs.writeFileSync(path.join(OUT, 'llms.txt'),
 `# ${BRAND}
 
-> Made-to-measure latex clothing studio. Every garment is handmade from 100% natural latex sheet (0.25mm–1.00mm) and cut to the customer's own body measurements. Around 100 designs across catsuits, dresses, hoods, masks, gloves, stockings, skirts, lingerie and accessories. Production takes ${PRODUCTION}. Shipping is free worldwide: USA 7 business days, Europe 10, Japan and Korea 7, rest of the world 10–15. Made-to-measure pieces are not returnable; defects are remade or refunded if reported within 48 hours of delivery. Contact: ${EMAIL}, WhatsApp ${WHATSAPP}. Operating entity: ${LEGAL}, Hong Kong SAR, China.
+> Made-to-measure latex clothing studio. Every garment is handmade from 100% natural latex sheet (0.25mm–1.00mm) and cut to the customer's own body measurements. Around 100 designs across catsuits, dresses, hoods, masks, gloves, stockings, skirts, lingerie and accessories. Production takes ${PRODUCTION}. Shipping is free worldwide: USA 7 business days, Europe 10, Japan and Korea 7, rest of the world 10–15. Made-to-measure pieces are not returnable; defects are remade or refunded if reported within 48 hours of delivery. Contact: ${EMAIL}, WhatsApp ${WA_HANDLE} (${WA_URL}), Telegram ${TELEGRAM_HANDLE} (${TELEGRAM_URL}). Operating entity: ${LEGAL}, Hong Kong SAR, China.
 
 ## Key facts
 - Material: 100% natural latex sheeting. 0.40mm standard; 0.25mm, 0.60mm, 0.80mm and 1.00mm available.
