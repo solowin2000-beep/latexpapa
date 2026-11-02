@@ -724,8 +724,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
-      // Canonical host: always serve the shop from https://www.latexpapa.com
-      if (url.hostname === 'latexpapa.com') {
+      // Canonical host: the shop is only ever served from https://www.latexpapa.com.
+      // The bare domain and the pages.dev preview host both 301 into it, so Google
+      // only ever sees one URL per page (no “duplicate / alternate page” split).
+      if (url.hostname === 'latexpapa.com' || url.hostname === 'latexpapa.pages.dev') {
         return Response.redirect('https://www.latexpapa.com' + url.pathname + url.search, 301);
       }
       if (url.pathname.startsWith('/api/')) return await handleApi(request, env, url);
