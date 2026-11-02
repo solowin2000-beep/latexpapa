@@ -91,6 +91,43 @@ function clampDesc(raw, max = 158) {
   return cut + '\u2026';
 }
 
+/* ---------- unique product meta description ----------
+ * The supplier feed reuses one boilerplate paragraph across dozens of products, so many
+ * product pages ended up with a byte-identical <meta name="description">. Google treats
+ * that as thin, duplicate content and leaves those pages in
+ * "Discovered - currently not indexed". Rebuild the description from the fields that really
+ * do differ between products: name, category, size range and colours.
+ * ------------------------------------------------------------------------- */
+const descFreq = new Map();
+for (const p of products) {
+  const k = plain(p.metaDescription).slice(0, 120).toLowerCase();
+  descFreq.set(k, (descFreq.get(k) || 0) + 1);
+}
+const capFirst = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+function uniqueDesc(p, c, i) {
+  const raw = plain(p.metaDescription);
+  const k = raw.slice(0, 120).toLowerCase();
+  const boiler =
+    !raw ||
+    (descFreq.get(k) || 0) > 1 ||
+    /^[\u2764\u2728\u2b50\u2b06]/.test(raw) ||
+    raw.length < 70;
+  if (!boiler) return raw;
+  const sizes = ((p.options && p.options.Size) || []).filter(s => s !== 'Customization');
+  const sizeTxt = sizes.length > 1 ? `${sizes[0]}\u2013${sizes[sizes.length - 1]} or custom` : 'made to your measurements';
+  const colours = ((p.options && p.options.Color) || []).filter(x => x !== 'Customization' && x !== 'Black');
+  const colourTxt = colours.length ? `${colours.slice(0, 3).join(', ')} or any latex colour` : 'any colour in the latex range';
+  const nm = p.name;
+  const forms = [
+    `${nm}: made to measure in 100% natural latex. ${capFirst(sizeTxt)} in ${colourTxt}.`,
+    `${nm}, handmade to your measurements in 0.40mm natural latex. ${capFirst(sizeTxt)}.`,
+    `${nm} \u2014 cut to your own measurements from 100% natural latex. ${capFirst(sizeTxt)}, in ${colourTxt}.`,
+    `${nm}, made to order in 100% natural latex. ${capFirst(sizeTxt)} and ${colourTxt}.`,
+    `${nm} handcrafted from natural latex sheeting to your measurements. Available ${sizeTxt}.`,
+  ];
+  return forms[i % forms.length];
+}
+
 /* ---------- shared chrome ---------- */
 const NAV = [
   ['/latex-catsuits/', 'Catsuits'],
@@ -438,6 +475,7 @@ writePage('/shop/', layout({
 }));
 
 // PRODUCT
+let pIdx = 0;
 for (const p of products) {
   const c = catOf[p.id];
   const main = pic(p, 0);
@@ -445,7 +483,9 @@ for (const p of products) {
   const sizes = p.options.Size || [];
   const colors = p.options.Color || [];
   const styles = p.options.Style || [];
-  const descPlain = plain(p.metaDescription);
+  const descPlain = uniqueDesc(p, c, pIdx++);
+  const priceSuffix = p.price ? ` From ${money(p.price)}.` : '';
+  const metaDesc = clampDesc(descPlain, 158 - priceSuffix.length) + priceSuffix;
   const faqItems = [
     { q: `How is the ${p.name.toLowerCase()} sized?`, a: 'It is not sized from a chart — we cut the pattern to the measurements you send after ordering. XS–XXL are starting points; Customisation means you send full measurements.' },
     { q: 'How long does production take?', a: `Production is ${PRODUCTION} from the moment we confirm your measurements, then shipping on top. USA 7 business days, Europe 10, Japan and Korea 7, elsewhere 10–15.` },
@@ -454,12 +494,12 @@ for (const p of products) {
     { q: 'Can I return it?', a: 'Because it is cut to your measurements, we cannot accept returns or exchanges. If it arrives defective, contact us within 48 hours for a remake or partial refund.' },
   ];
   writePage(`/product/${p.slug}/`, layout({
-    title: `${p.name} — Made to Measure | ${BRAND}`,
-    description: (() => {
-      const suffix = p.price ? ` From ${money(p.price)}.` : '';
-      const base = descPlain || `${p.name}, handmade to your measurements in 100% natural latex.`;
-      return clampDesc(base, 158 - suffix.length) + suffix;
+    title: (() => {
+      // Google 大约只显示 60-65 个字符；名称太长的商品去掉中间那段，保住商品名和品牌。
+      const full = `${p.name} — Made to Measure | ${BRAND}`;
+      return full.length <= 65 ? full : `${p.name} | ${BRAND}`;
     })(),
+    description: metaDesc,
     url: `/product/${p.slug}/`, active: `/${p.category}/`,
     ogImage: main, robots: p.price ? undefined : 'noindex,follow',
     jsonLd: [
