@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 
 const SITE = 'https://www.latexpapa.com';
@@ -151,6 +151,7 @@ function header(active) {
   <button class="navbtn" type="button" id="navbtn" aria-expanded="false" aria-controls="primary-nav" aria-label="Open menu"><span class="navbtn-box"><span></span><span></span><span></span></span></button>
   <nav class="nav" id="primary-nav" aria-label="Main">${links}<a class="nav-cta" href="/custom-latex/">Start a custom piece</a></nav>
   <a class="cartlink" href="/cart/" aria-label="Cart">Cart <span class="cartn" data-cart-count style="display:none">0</span></a>
+  ${SEARCH_UI}
   <a class="btn cta" href="/custom-latex/">Start a custom piece</a>
 </div></header>`;
 }
@@ -209,6 +210,26 @@ const ADDITIONS_SRC = path.resolve('site/scripts/additions.js');
 const CART_SRC = path.resolve('site/scripts/cart.js');
 const CART_JS = fs.existsSync(CART_SRC) ? '<script>' + fs.readFileSync(CART_SRC, 'utf8') + '</script>' : '';
 
+const SEARCH_SRC = path.resolve('site/scripts/search.js');
+const SEARCH_JS = fs.existsSync(SEARCH_SRC) ? '<script src="/assets/search.js" defer></script>' : '';
+
+// Header search: one button in the bar, one overlay panel. The panel cannot live
+// inside <header> because .top has a backdrop-filter, which would turn it into the
+// containing block for the fixed overlay.
+const SEARCH_UI = `<button class="searchbtn" type="button" id="searchbtn" aria-controls="lpsearch" aria-expanded="false" aria-label="Search products"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M16.6 16.6 21 21"></path></svg><span>Search</span></button>`;
+const SEARCH_OVERLAY = `<div class="lpsearch" id="lpsearch" data-lp-search hidden>
+  <div class="lpsearch-panel" role="dialog" aria-modal="true" aria-label="Search products">
+    <form class="lpsearch-form" action="/search/" method="get" role="search">
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M16.6 16.6 21 21"></path></svg>
+      <input class="lp-q" type="search" name="q" placeholder="Search ${TOTAL} pieces — try “harness”, “gold dress”, “hood”" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search our products">
+      <button class="lpsearch-x" type="button" data-lp-close aria-label="Close search">Close</button>
+    </form>
+    <p class="lpsearch-status" data-lp-status></p>
+    <div class="lpsearch-results" data-lp-results data-lp-mode="rows"></div>
+    <a class="lpsearch-seeall" data-lp-seeall href="/search/" hidden>See all results</a>
+  </div>
+</div>`;
+
 const ADDITIONS_JS = fs.existsSync(ADDITIONS_SRC)
   ? '<script>' + fs.readFileSync(ADDITIONS_SRC, 'utf8') + '</script>'
   : '';
@@ -252,6 +273,8 @@ ${footer()}
 ${NAV_JS}
 ${CART_JS}
 ${ADDITIONS_JS}
+${SEARCH_OVERLAY}
+${SEARCH_JS}
 </body>
 </html>`;
 }
@@ -472,6 +495,29 @@ writePage('/shop/', layout({
     <p class="lead">Every item is cut from 100% natural latex sheeting to the measurements you send us. Pick a piece, choose a colour, and we build it in ${PRODUCTION}.</p>
   </div></section>
   ${categories.map(c => `<section class="tight"><div class="wrap"><div class="sec-head"><h2 style="margin:0">${esc2(c.name)}</h2><a class="btn ghost" href="/${c.slug}/">See category</a></div>${grid(byCat[c.slug], 4)}</div></section>`).join('')}`,
+}));
+
+// SEARCH
+writePage('/search/', layout({
+  title: `Search ${TOTAL} Made-to-Measure Latex Pieces | ${BRAND}`,
+  description: `Search every LatexPapa piece by name, category or colour — ${TOTAL} made-to-measure latex items, all handmade to your measurements.`,
+  url: '/search/', active: null, robots: 'noindex,follow',
+  jsonLd: [ORG, crumbs([{ name: 'Home', url: '/' }, { name: 'Search', url: '/search/' }])],
+  body: `<div class="wrap" style="padding:56px 0 60px">
+  <nav class="crumbs"><a href="/">Home</a><span>/</span>Search</nav>
+  <p class="eyebrow">Search</p>
+  <h1>Find a piece</h1>
+  <p class="lead">Type any part of a name, a category or a colour — handy when a customer sends you a title and you need to find the piece.</p>
+  <div class="lpsearch-page" data-lp-search data-lp-page style="margin-top:26px">
+    <form class="lpsearch-form" action="/search/" method="get" role="search">
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M16.6 16.6 21 21"></path></svg>
+      <input class="lp-q" type="search" name="q" placeholder="Search ${TOTAL} pieces…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search our products">
+      <button class="btn" type="submit" style="padding:.6em 1.1em">Search</button>
+    </form>
+    <p class="lpsearch-status" data-lp-status></p>
+    <div class="grid g4" data-lp-results data-lp-mode="cards" style="margin-top:24px"></div>
+  </div>
+</div>`,
 }));
 
 // PRODUCT
@@ -1298,11 +1344,22 @@ writePage('/checkout/', layout({
 const noPrice = new Set(products.filter(p => !p.price).map(p => `/product/${p.slug}/`));
 // These three pages are duplicated by the dedicated tool site (tools.latexpapa.com) and
 // point their rel=canonical there, so they must not also be listed in this sitemap.
-const CANONICAL_ELSEWHERE = new Set(['/size-calculator/', '/measure-guide/', '/thickness-guide/', '/cart/', '/checkout/']);
+const CANONICAL_ELSEWHERE = new Set(['/size-calculator/', '/measure-guide/', '/thickness-guide/', '/cart/', '/checkout/', '/search/']);
 const urls = pages.map(p => p.url).filter(u => !noPrice.has(u) && !CANONICAL_ELSEWHERE.has(u));
 
 fs.mkdirSync(path.join(OUT, 'assets'), { recursive: true });
 fs.copyFileSync(path.resolve('site/style.css'), path.join(OUT, 'assets', 'style.css'));
+if (fs.existsSync(SEARCH_SRC)) fs.copyFileSync(SEARCH_SRC, path.join(OUT, 'assets', 'search.js'));
+
+// Search index for the client-side search box: name, category, price and a thumb.
+const SEARCH_INDEX = products
+  .filter(p => p.price)
+  .map(p => ({
+    s: p.slug, n: p.name, c: (catOf[p.id] || {}).name || '',
+    k: ((p.options || {}).Color || []).filter(x => !/custom/i.test(x)).map(x => x.replace(/\+/g, ' ')).join(' '),
+    p: p.price, i: pic(p, 0) || '',
+  }));
+fs.writeFileSync(path.join(OUT, 'search-index.json'), JSON.stringify(SEARCH_INDEX), 'utf8');
 
 /* ---------- brand icons (favicon / PWA) ---------- */
 // Source files live in site/assets so a clean rebuild never loses them.

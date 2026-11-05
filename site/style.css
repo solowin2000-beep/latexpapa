@@ -1,4 +1,4 @@
-﻿/* LatexPapa — design system */
+/* LatexPapa — design system */
 *,*::before,*::after{box-sizing:border-box}
 :root{
   --bg:#0a0a0b; --bg2:#0f0f11; --panel:#141417; --panel2:#1a1a1e;
@@ -197,3 +197,35 @@ select.chip{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 
 .meas textarea{width:100%;min-height:104px;background:var(--panel);border:1px solid var(--line2);color:var(--ink);border-radius:12px;padding:12px 14px;font:inherit;font-size:.95rem;resize:vertical}
 .meas textarea:focus{outline:none;border-color:var(--accent)}
 .meas p{font-size:.82rem;color:var(--muted);margin:8px 0 0}
+
+/* search — header overlay + /search/ page */
+.searchbtn{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:.9rem;color:var(--ink2);background:transparent;border:1px solid var(--line2);border-radius:100px;padding:.5em 1em;cursor:pointer;white-space:nowrap;flex:none;transition:.15s}
+.searchbtn:hover{color:var(--ink);border-color:var(--ink)}
+.searchbtn svg{flex:none}
+.lpsearch{position:fixed;inset:0;z-index:120;background:rgba(6,6,7,.74);backdrop-filter:blur(6px);display:flex;justify-content:center;align-items:flex-start;padding:74px 16px 16px}
+.lpsearch-panel{width:min(720px,100%);max-height:calc(100vh - 96px);overflow:auto;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);padding:14px;box-shadow:0 30px 80px rgba(0,0,0,.62);transform:translateY(-10px);opacity:0;transition:.16s ease}
+.lpsearch.on .lpsearch-panel{transform:none;opacity:1}
+.lpsearch-form{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line2);border-radius:11px;padding:10px 12px}
+.lpsearch-form svg{flex:none;color:var(--muted)}
+.lpsearch-form:focus-within{border-color:var(--accent)}
+.lp-q{flex:1;min-width:0;background:transparent;border:0;color:var(--ink);font:inherit;font-size:1rem;outline:none;padding:2px 0}
+.lp-q::placeholder{color:var(--muted2)}
+.lp-q::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.lpsearch-x{font:inherit;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid var(--line2);border-radius:100px;padding:.35em .85em;cursor:pointer;flex:none}
+.lpsearch-x:hover{color:var(--ink);border-color:var(--ink)}
+.lpsearch-status{font-size:.82rem;color:var(--muted);margin:11px 2px 0}
+.lpsearch-status a{color:var(--accent2)}
+.lpsearch-results{margin-top:8px;max-height:min(56vh,460px);overflow:auto}
+.lp-r{display:flex;align-items:center;gap:12px;padding:9px 8px;border-radius:10px}
+.lp-r:hover,.lp-r.sel{background:rgba(255,255,255,.06)}
+.lp-r img,.lp-r-ph{width:46px;height:46px;flex:none;border-radius:9px;object-fit:cover;border:1px solid var(--line);background:var(--panel2)}
+.lp-r-tx{display:flex;flex-direction:column;min-width:0}
+.lp-r-nm{font-size:.94rem;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-r-meta{font-size:.76rem;color:var(--muted);letter-spacing:.02em;text-transform:uppercase}
+mark{background:rgba(216,32,63,.3);color:var(--ink);border-radius:3px;padding:0 2px}
+.lpsearch-seeall{display:block;text-align:center;margin-top:10px;padding-top:11px;border-top:1px solid var(--line);color:var(--accent2);font-size:.9rem}
+.lpsearch-page .lpsearch-form{max-width:640px}
+.lpsearch-page .lpsearch-results{margin-top:24px;max-height:none;overflow:visible}
+.lpsearch[hidden],.lpsearch-results[hidden],.lpsearch-seeall[hidden]{display:none}
+@media(max-width:1200px){.searchbtn span{display:none}.searchbtn{padding:.5em .72em}}
+@media(max-width:900px){.lpsearch{padding:58px 12px 12px}}
