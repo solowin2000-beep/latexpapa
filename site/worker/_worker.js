@@ -109,11 +109,64 @@ async function readOrders(env) {
   try { const j = JSON.parse(raw); return Array.isArray(j) ? j : []; } catch (e) { return []; }
 }
 function orderRef(id) { return 'LP-' + String(id || '').replace(/[^A-Za-z0-9]/g, '').slice(-6).toUpperCase(); }
+
+// Turn "DHL + 1234567890" into a link the customer can actually tap.
+// Anything we do not recognise falls back to 17track, which handles most posts.
+function trackUrl(carrier, tracking) {
+  const t = String(tracking || '').trim();
+  if (!t) return '';
+  const c = String(carrier || '').toLowerCase();
+  const e = encodeURIComponent(t);
+  if (c.indexOf('dhl') >= 0) return 'https://www.dhl.com/global-en/home/tracking.html?tracking-id=' + e;
+  if (c.indexOf('ups') >= 0) return 'https://www.ups.com/track?tracknum=' + e;
+  if (c.indexOf('fedex') >= 0) return 'https://www.fedex.com/fedextrack/?trknbr=' + e;
+  if (c.indexOf('usps') >= 0) return 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + e;
+  if (c.indexOf('royal') >= 0) return 'https://www.royalmail.com/track-your-item#/tracking-results/' + e;
+  if (c.indexOf('sf') >= 0 || c.indexOf('顺丰') >= 0) return 'https://www.sf-express.com/chn/en/dynamic_function/waybill/#search/bill-number/' + e;
+  return 'https://www.17track.net/en/track?nums=' + e;
+}
 const ORDER_STATUSES = ['awaiting', 'paid', 'shipped', 'cancelled', 'refunded'];
 
 async function writeOrders(env, list) {
   while (list.length > 600) list.pop();
   await env.LATEXPAPA_DATA.put('orders', JSON.stringify(list));
+}
+
+/* ---------- discount codes ---------- */
+// Stored as one JSON array under the KV key "coupons" so the admin page can
+// list, edit and delete them without touching the deployed code.
+async function readCoupons(env) {
+  const raw = await env.LATEXPAPA_DATA.get('coupons');
+  if (!raw) return [];
+  try { const j = JSON.parse(raw); return Array.isArray(j) ? j : []; } catch (e) { return []; }
+}
+async function writeCoupons(env, list) {
+  while (list.length > 300) list.pop();
+  await env.LATEXPAPA_DATA.put('coupons', JSON.stringify(list));
+}
+// Codes are case-insensitive and limited to letters, digits, dash and underscore
+// so they survive being typed by hand into the checkout box.
+function normCode(s) {
+  return String(s == null ? '' : s).trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
+}
+// checkCoupon — the single place that decides whether a code may be used.
+// Both the public "apply" button and the real charge go through this.
+function checkCoupon(c, subtotal) {
+  if (!c) return { ok: false, reason: 'That discount code was not found.' };
+  if (c.active === false) return { ok: false, reason: 'That discount code is no longer active.' };
+  if (c.expires) {
+    const t = Date.parse(c.expires);
+    if (!isNaN(t) && t < Date.now()) return { ok: false, reason: 'That discount code has expired.' };
+  }
+  const limit = Math.floor(Number(c.limit || 0));
+  if (limit > 0 && Number(c.used || 0) >= limit) return { ok: false, reason: 'That discount code has been fully redeemed.' };
+  const min = Number(c.min || 0);
+  if (min > 0 && subtotal < min) return { ok: false, reason: 'Spend ' + money(min) + ' or more to use this code.' };
+  const val = Number(c.value || 0);
+  let off = c.type === 'fixed' ? val : subtotal * val / 100;
+  off = Math.round(Math.min(Math.max(off, 0), subtotal) * 100) / 100;
+  if (!(off > 0)) return { ok: false, reason: 'That code does not lower this order.' };
+  return { ok: true, code: c.code, type: c.type === 'fixed' ? 'fixed' : 'percent', value: val, discount: off };
 }
 
 // upsertOrder — create or patch one order keyed by its PayPal order id.
@@ -158,11 +211,12 @@ function publicOrder(o) {
     id: o.id, ref: o.ref, status: o.status || 'awaiting',
     paypalId: o.paypalId || '', captureId: o.captureId || '',
     total: Number(o.total || 0), currency: o.currency || CURRENCY,
+    subtotal: Number(o.subtotal || 0), discount: Number(o.discount || 0), coupon: o.coupon || '',
     items: Array.isArray(o.items) ? o.items : [], note: o.note || '',
     payer: o.payer || '',
     customer: o.customer || { email: '', name: '' },
     shipping: o.shipping || { name: '', address: '' },
-    carrier: o.carrier || '', tracking: o.tracking || '',
+    carrier: o.carrier || '', tracking: o.tracking || '', trackingUrl: trackUrl(o.carrier, o.tracking),
     created: o.created || '', paidAt: o.paidAt || '', shippedAt: o.shippedAt || '',
     updatedAt: o.updatedAt || '', timeline: Array.isArray(o.timeline) ? o.timeline : [],
     notify: o.notify || null,
@@ -419,12 +473,45 @@ async function handleApi(request, env, url) {
     return json({ ok: true, ready: paypalReady(env), env: paypalEnv(env), currency: CURRENCY });
   }
 
+  // Public: "Apply" in the checkout box. Prices come from the catalogue, never
+  // from the browser, so the previewed discount is exactly what will be charged.
+  if (path === '/api/coupon/check' && method === 'POST') {
+    const body = await request.json().catch(() => ({}));
+    const lines = cartLines(body.items);
+    const subtotal = linesTotal(lines);
+    if (!lines.length) return json({ ok: false, error: 'Your cart is empty.' });
+    const code = normCode(body.code);
+    if (!code) return json({ ok: false, error: 'Please type a discount code.' });
+    const list = await readCoupons(env);
+    const found = list.find(x => normCode(x.code) === code);
+    const chk = checkCoupon(found, subtotal);
+    if (!chk.ok) return json({ ok: false, error: chk.reason });
+    return json({
+      ok: true, code: chk.code, type: chk.type, value: chk.value, discount: chk.discount,
+      subtotal, total: Math.round((subtotal - chk.discount) * 100) / 100, currency: CURRENCY,
+    });
+  }
+
   if (path === '/api/pay/create' && method === 'POST') {
     if (!paypalReady(env)) return json({ ok: false, error: 'Card payment is not switched on yet - please order by email.' }, 503);
     const body = await request.json().catch(() => ({}));
     const lines = cartLines(body.items);
     if (!lines.length) return json({ ok: false, error: 'Your cart is empty.' }, 400);
-    const total = linesTotal(lines);
+    const subtotal = linesTotal(lines);
+    // The code is re-checked against the server-side catalogue totals, so a
+    // tampered browser cannot invent a bigger discount than the rules allow.
+    const codeIn = normCode(body.coupon);
+    let discount = 0;
+    if (codeIn) {
+      const coupons = await readCoupons(env);
+      const found = coupons.find(x => normCode(x.code) === codeIn);
+      const chk = checkCoupon(found, subtotal);
+      if (!chk.ok) return json({ ok: false, error: chk.reason }, 400);
+      discount = chk.discount;
+    }
+    const total = Math.round((subtotal - discount) * 100) / 100;
+    const breakdown = { item_total: { currency_code: CURRENCY, value: subtotal.toFixed(2) } };
+    if (discount > 0) breakdown.discount = { currency_code: CURRENCY, value: discount.toFixed(2) };
     const unit = {
       reference_id: 'latexpapa',
       description: 'LatexPapa made-to-measure order',
@@ -435,7 +522,7 @@ async function handleApi(request, env, url) {
       })),
       amount: {
         currency_code: CURRENCY, value: total.toFixed(2),
-        breakdown: { item_total: { currency_code: CURRENCY, value: total.toFixed(2) } },
+        breakdown,
       },
     };
     const note = String(body.note || '').trim().slice(0, 120);
@@ -463,12 +550,12 @@ async function handleApi(request, env, url) {
     try {
       await upsertOrder(env, created.id, {
         ref: orderRef(created.id),
-        total, currency: CURRENCY,
+        total, subtotal, discount, coupon: codeIn || '', couponCounted: false, currency: CURRENCY,
         items: lines.map(l => ({ sku: l.slug, name: l.name, qty: l.qty, price: l.price })),
         note: note || '',
-      }, 'checkout started');
+      }, 'checkout started' + (discount > 0 ? ' with code ' + codeIn : ''));
     } catch (e) {}
-    return json({ ok: true, id: created.id, approvalUrl: approve.href, total, currency: CURRENCY, env: paypalEnv(env) });
+    return json({ ok: true, id: created.id, approvalUrl: approve.href, total, subtotal, discount, coupon: codeIn || '', currency: CURRENCY, env: paypalEnv(env) });
   }
 
   if (path === '/api/pay/capture' && method === 'POST') {
@@ -510,9 +597,44 @@ async function handleApi(request, env, url) {
         price: Number((i.unit_amount && i.unit_amount.value) || 0),
       })),
     }, 'payment captured');
+    // Count a limited-use code only once the money has actually cleared.
+    if (rec && rec.coupon && !rec.couponCounted) {
+      try {
+        const coupons = await readCoupons(env);
+        const want = normCode(rec.coupon);
+        const hit = coupons.find(x => normCode(x.code) === want);
+        if (hit) { hit.used = Number(hit.used || 0) + 1; await writeCoupons(env, coupons); }
+        await upsertOrder(env, id, { couponCounted: true });
+        rec.couponCounted = true;
+      } catch (e) {}
+    }
     const nres = await notifyOrder(env, rec);
     await saveNotify(env, rec, nres);
     return json({ ok: true, ref: rec.ref, status: cap.status, total: rec.total, currency: rec.currency });
+  }
+
+  // Public order tracking. Needs the reference AND the email used at checkout,
+  // so a guessed reference alone never exposes somebody else's order.
+  if (path === '/api/track' && method === 'GET') {
+    const ref = String(url.searchParams.get('ref') || '').trim().toUpperCase();
+    const email = String(url.searchParams.get('email') || '').trim().toLowerCase();
+    if (!ref || !email) return json({ ok: false, error: 'Enter your order reference and the email you used at checkout.' });
+    const list = await readOrders(env);
+    const o = list.find(x => String(x.ref || '').toUpperCase() === ref || String(x.paypalId || '').toUpperCase() === ref);
+    if (!o) return json({ ok: false, error: 'We could not find an order with that reference.' });
+    const have = String((o.customer && o.customer.email) || o.payer || '').toLowerCase();
+    if (!have || have !== email) return json({ ok: false, error: 'That email does not match this order.' });
+    const po = publicOrder(o);
+    return json({
+      ok: true,
+      order: {
+        ref: po.ref, status: po.status,
+        created: po.created, paidAt: po.paidAt, shippedAt: po.shippedAt,
+        items: po.items.map(i => ({ name: i.name, qty: i.qty })),
+        total: po.total, currency: po.currency,
+        carrier: po.carrier, tracking: po.tracking, trackingUrl: po.trackingUrl,
+      },
+    });
   }
 
   if (path === '/api/pay/order' && method === 'GET') {
@@ -537,6 +659,48 @@ async function handleApi(request, env, url) {
     if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
     const orders = (await readOrders(env)).map(publicOrder);
     return json({ ok: true, orders, paypal: paypalReady(env), env: paypalEnv(env), notify: notifyChannel(env), notifyLabel: notifyLabel(env) });
+  }
+
+/* ---------- discount codes (admin only) ---------- */
+  if (path === '/api/coupons' && method === 'GET') {
+    if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
+    return json({ ok: true, coupons: await readCoupons(env) });
+  }
+
+  if (path === '/api/coupons/save' && method === 'POST') {
+    if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
+    const body = await request.json().catch(() => ({}));
+    const code = normCode(body.code);
+    if (!code) return json({ ok: false, error: 'Give the code a name using letters or numbers.' }, 400);
+    const type = body.type === 'fixed' ? 'fixed' : 'percent';
+    const value = Math.round(Number(body.value || 0) * 100) / 100;
+    if (!(value > 0)) return json({ ok: false, error: 'The discount has to be more than zero.' }, 400);
+    if (type === 'percent' && value > 90) return json({ ok: false, error: 'A percentage discount cannot be more than 90%.' }, 400);
+    const list = await readCoupons(env);
+    const at = list.findIndex(x => normCode(x.code) === code);
+    const rec = at >= 0 ? list[at] : { code, used: 0, created: new Date().toISOString() };
+    rec.code = code;
+    rec.type = type;
+    rec.value = value;
+    rec.min = Math.max(0, Math.round(Number(body.min || 0) * 100) / 100);
+    rec.limit = Math.max(0, Math.floor(Number(body.limit || 0)));
+    rec.active = body.active !== false;
+    rec.expires = String(body.expires || '').slice(0, 10);
+    rec.note = String(body.note || '').slice(0, 120);
+    rec.updatedAt = new Date().toISOString();
+    if (at < 0) list.unshift(rec); else list[at] = rec;
+    await writeCoupons(env, list);
+    return json({ ok: true, coupon: rec });
+  }
+
+  if (path === '/api/coupons/delete' && method === 'POST') {
+    if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
+    const body = await request.json().catch(() => ({}));
+    const code = normCode(body.code);
+    const list = await readCoupons(env);
+    const next = list.filter(x => normCode(x.code) !== code);
+    await writeCoupons(env, next);
+    return json({ ok: true, removed: list.length - next.length });
   }
 
   if (path === '/api/notify-test' && method === 'POST') {
@@ -569,15 +733,19 @@ async function handleApi(request, env, url) {
       await writeOrders(env, list);
       return json({ ok: true, removed: true });
     }
+    // Shipping fields are written first so the status check below can see them.
+    for (const k of ['carrier', 'tracking']) {
+      if (typeof body[k] === 'string') rec[k] = body[k].trim().slice(0, 120);
+    }
     if (typeof body.status === 'string' && ORDER_STATUSES.indexOf(body.status) >= 0 && body.status !== rec.status) {
+      if (body.status === 'shipped' && !String(rec.tracking || '').trim()) {
+        return json({ ok: false, error: 'Add a tracking number before marking it shipped.' }, 400);
+      }
       rec.status = body.status;
       if (body.status === 'shipped') rec.shippedAt = now;
       if (body.status === 'paid') rec.paidAt = rec.paidAt || now;
       rec.timeline = rec.timeline || [];
       rec.timeline.push({ at: now, event: 'marked ' + body.status });
-    }
-    for (const k of ['carrier', 'tracking']) {
-      if (typeof body[k] === 'string') rec[k] = body[k].trim().slice(0, 120);
     }
     if (typeof body.note === 'string') rec.note = body.note.slice(0, 2000);
     if (typeof body.shipTo === 'string') rec.shipping = { name: (rec.shipping && rec.shipping.name) || '', address: body.shipTo.slice(0, 400) };
@@ -625,12 +793,13 @@ async function handleApi(request, env, url) {
     if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
     const orders = await readOrders(env);
     const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""').replace(/[\r\n]+/g, ' ') + '"';
-    const head = ['Reference', 'Placed', 'Status', 'Customer', 'Email', 'Ship to', 'Items', 'Total', 'Currency', 'Carrier', 'Tracking', 'Customer note', 'PayPal order id'];
+    const head = ['Reference', 'Placed', 'Status', 'Customer', 'Email', 'Ship to', 'Items', 'Discount code', 'Discount', 'Total', 'Currency', 'Carrier', 'Tracking', 'Customer note', 'PayPal order id'];
     const rows = orders.map(o => {
       const po = publicOrder(o);
       return [
         po.ref, po.created, po.status, po.customer.name, po.customer.email || po.payer,
         po.shipping.address, po.items.map(i => i.name + ' x' + i.qty).join('; '),
+        po.coupon || '', po.discount ? Number(po.discount).toFixed(2) : '',
         Number(po.total).toFixed(2), po.currency, po.carrier, po.tracking, po.note, po.paypalId,
       ].map(cell).join(',');
     });

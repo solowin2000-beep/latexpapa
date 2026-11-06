@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -69,6 +69,9 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
 .oacts{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .oacts .grow{flex:1}
 .tl{font-size:.8rem;color:var(--muted);display:grid;gap:4px}
+.shipbox{border:1px solid var(--line2);border-radius:12px;padding:16px;background:#101013}
+.shipbox h4{margin:0 0 14px;font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.shipbox .oacts{margin-top:4px}
 @media(max-width:760px){
   .ord-top{grid-template-columns:1fr auto;gap:8px 12px}
   .ord-tot{text-align:left}
@@ -95,6 +98,7 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
     <div class="tabs">
       <button class="tab on" type="button" data-tab="orders">Orders <span class="pill" id="pillOrders">0</span></button>
       <button class="tab" type="button" data-tab="products">Products</button>
+      <button class="tab" type="button" data-tab="coupons">Coupons <span class="pill" id="pillCoupons">0</span></button>
       <span class="grow"></span>
       <button class="btn sm dan" id="outBtn" type="button">Sign out</button>
     </div>
@@ -153,10 +157,62 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
 
       <div class="list" id="list"></div>
     </div>
+
+    <div id="view-coupons" style="display:none">
+      <div class="bar">
+        <h1 style="margin:0;flex:1">Discount codes</h1>
+        <button class="btn sm" id="newCoupBtn" type="button">+ New code</button>
+      </div>
+      <div class="msg" id="cmsg"></div>
+
+      <form id="cform" style="display:none">
+        <input type="hidden" id="corig">
+        <div class="row2">
+          <label class="fld"><span>Code</span><input id="ccode" required placeholder="WELCOME10" autocomplete="off" autocapitalize="characters"></label>
+          <label class="fld"><span>Type</span><select id="ctype"><option value="percent">Percent off (%)</option><option value="fixed">Fixed amount off ($)</option></select></label>
+        </div>
+        <div class="row2">
+          <label class="fld"><span>Value</span><input id="cvalue" type="number" step="0.01" min="0.01" required placeholder="10"></label>
+          <label class="fld"><span>Minimum order ($, 0 = none)</span><input id="cmin" type="number" step="0.01" min="0" placeholder="0"></label>
+        </div>
+        <div class="row2">
+          <label class="fld"><span>Total uses (0 = unlimited)</span><input id="climit" type="number" step="1" min="0" placeholder="0"></label>
+          <label class="fld"><span>Expires on (optional)</span><input id="cexpires" type="date"></label>
+        </div>
+        <label class="fld"><span>Note (only you see this)</span><input id="cnote" maxlength="120" placeholder="e.g. Instagram promo, October"></label>
+        <label style="display:flex;align-items:center;gap:10px;margin:0 0 6px;font-size:.9rem">
+          <input id="cactive" type="checkbox" checked style="width:auto">
+          <span style="margin:0;font-size:.9rem;letter-spacing:0;text-transform:none;color:var(--ink)">Active — customers can use it</span>
+        </label>
+        <div class="bar" style="margin-top:18px">
+          <button class="btn" type="submit" id="csaveBtn">Save code</button>
+          <button class="btn ghost sm" type="button" id="ccancelBtn">Cancel</button>
+          <span class="grow"></span>
+          <button class="btn dan sm" type="button" id="cdelBtn" style="display:none">Delete</button>
+        </div>
+        <p class="hint">Codes are not case-sensitive. A percentage comes off the subtotal; a fixed amount is capped at the subtotal. The discount is re-checked on the server before payment, so it cannot be faked in the browser.</p>
+      </form>
+
+      <div class="list" id="clist"></div>
+    </div>
   </section>
 </div>
 
 <script>window.__CATS__ = [/*__CATEGORIES__*/];</script>
+<datalist id="lp-carriers">
+  <option value="DHL Express"></option>
+  <option value="UPS"></option>
+  <option value="FedEx"></option>
+  <option value="USPS"></option>
+  <option value="Royal Mail"></option>
+  <option value="China Post"></option>
+  <option value="China Post EMS"></option>
+  <option value="SF Express"></option>
+  <option value="YunExpress"></option>
+  <option value="4PX"></option>
+  <option value="Yanwen"></option>
+  <option value="Other"></option>
+</datalist>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -189,12 +245,17 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
   var LABEL = { awaiting: 'Awaiting payment', paid: 'Paid · to make', shipped: 'Shipped', cancelled: 'Cancelled', refunded: 'Refunded' };
 
   /* ---------------- tabs ---------------- */
+  var VIEWS = ['orders', 'products', 'coupons'];
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) {
     t.addEventListener('click', function () {
       Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (o) { o.classList.remove('on'); });
       t.classList.add('on');
-      $('view-orders').style.display = t.getAttribute('data-tab') === 'orders' ? '' : 'none';
-      $('view-products').style.display = t.getAttribute('data-tab') === 'products' ? '' : 'none';
+      var want = t.getAttribute('data-tab');
+      VIEWS.forEach(function (v) {
+        var el = $('view-' + v);
+        if (el) el.style.display = want === v ? '' : 'none';
+      });
+      if (want === 'coupons') loadCoupons();
     });
   });
   Array.prototype.forEach.call(document.querySelectorAll('#ofilter .chip'), function (c) {
@@ -207,6 +268,27 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
   });
 
   /* ---------------- orders ---------------- */
+  function shipMessage(o) {
+    var first = (o.customer && o.customer.name) ? String(o.customer.name).trim().split(' ')[0] : 'there';
+    var lines = [
+      'Hi ' + first + ',',
+      '',
+      'Good news \u2014 your LatexPapa order ' + o.ref + ' has shipped.',
+      '',
+      'Courier: ' + (o.carrier || '-'),
+      'Tracking number: ' + (o.tracking || '-'),
+    ];
+    if (o.trackingUrl) lines.push('Track it here: ' + o.trackingUrl);
+    lines.push(
+      '',
+      'Transit is normally 7 business days to the USA, Japan and Korea, 10 to Europe and 10-15 elsewhere. If the parcel has not moved for a week, reply to this email and we will chase the carrier.',
+      '',
+      'Thank you,',
+      'LatexPapa'
+    );
+    return lines.join('\n');
+  }
+
   function renderOrders() {
     var box = $('olist');
     var list = ORDERS.filter(function (o) { return ofilter === 'all' || o.status === ofilter; });
@@ -223,13 +305,14 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
           '<div><b>' + esc((o.customer && o.customer.name) || '—') + '</b><span>' + esc((o.customer && o.customer.email) || o.payer || 'no email yet') + '</span></div>' +
           '<div class="ord-tot">' + money(o.total) + '</div>' +
           '<div><span class="badge ' + esc(o.status) + '">' + esc(LABEL[o.status] || o.status) + '</span></div>' +
-          '<div><button class="btn sm ghost" type="button" data-toggle="' + esc(o.id) + '">Open</button></div>' +
+          '<div><button class="btn sm ghost" type="button" data-toggle="' + esc(o.id) + '">' + (o.status === 'paid' ? 'Ship &rarr;' : 'Open') + '</button></div>' +
         '</div>' +
         '<div class="ord-body" id="ob-' + esc(o.id) + '" hidden>' +
           '<div><table class="lines"><thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead><tbody>' +
             (o.items || []).map(function (i) {
               return '<tr><td>' + esc(i.name) + '</td><td>' + i.qty + '</td><td>' + money(i.price) + '</td></tr>';
             }).join('') +
+            (o.coupon ? '<tr><td>Discount <b>' + esc(o.coupon) + '</b></td><td></td><td>&minus;' + money(o.discount) + '</td></tr>' : '') +
             '<tr><td><b>Total</b></td><td></td><td><b>' + money(o.total) + ' ' + esc(o.currency) + '</b></td></tr>' +
           '</tbody></table></div>' +
           '<dl class="kv">' +
@@ -240,13 +323,23 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
             '<dt>Alert sent</dt><dd>' + (o.notify ? (o.notify.ok ? 'sent' : 'failed') + ' &middot; ' + esc(o.notify.channel || '-') + ' &middot; ' + esc(when(o.notify.at)) + (o.notify.error ? '<br><span style="font-size:.78rem;opacity:.75">' + esc(o.notify.error) + '</span>' : '') : '<i>not sent yet</i>') + '</dd>' +
             '<dt>History</dt><dd class="tl">' + (o.timeline || []).map(function (t) { return esc(when(t.at) + ' — ' + t.event); }).join('<br>') + '</dd>' +
           '</dl>' +
-          '<div class="row2">' +
-            '<label class="fld"><span>Courier</span><input id="car-' + esc(o.id) + '" value="' + esc(o.carrier) + '" placeholder="DHL / UPS / FedEx / China Post"></label>' +
-            '<label class="fld"><span>Tracking number</span><input id="trk-' + esc(o.id) + '" value="' + esc(o.tracking) + '" placeholder="e.g. 1234567890"></label>' +
+          '<div class="shipbox">' +
+            '<h4>Shipping</h4>' +
+            '<div class="row2">' +
+              '<label class="fld"><span>Courier</span><input id="car-' + esc(o.id) + '" list="lp-carriers" value="' + esc(o.carrier) + '" placeholder="DHL / UPS / FedEx / China Post"></label>' +
+              '<label class="fld"><span>Tracking number</span><input id="trk-' + esc(o.id) + '" value="' + esc(o.tracking) + '" placeholder="e.g. 1234567890" autocomplete="off"></label>' +
+            '</div>' +
+            (o.trackingUrl ? '<p class="hint" style="margin:-4px 0 12px">Customer tracking link: <a href="' + esc(o.trackingUrl) + '" target="_blank" rel="noopener">open &rarr;</a></p>' : '') +
+            '<div class="oacts">' +
+              '<button class="btn sm ghost" type="button" data-save="' + esc(o.id) + '">Save tracking</button>' +
+              (o.status === 'shipped'
+                ? '<span class="badge shipped">Shipped' + (o.shippedAt ? ' ' + esc(when(o.shippedAt)) : '') + '</span>' +
+                  (o.tracking ? '<button class="btn sm ghost" type="button" data-copy="' + esc(o.id) + '">Copy message</button>' : '') +
+                  (o.tracking && ((o.customer && o.customer.email) || o.payer) ? '<button class="btn sm" type="button" data-mail="' + esc(o.id) + '">Email customer</button>' : '')
+                : '<button class="btn sm" type="button" data-ship="' + esc(o.id) + '">' + (o.tracking ? 'Ship &amp; notify customer' : 'Ship this order') + '</button>') +
+            '</div>' +
           '</div>' +
-          '<div class="oacts">' +
-            '<button class="btn sm" type="button" data-save="' + esc(o.id) + '">Save shipping</button>' +
-            '<button class="btn sm ghost" type="button" data-mark="' + esc(o.id) + '" data-to="shipped">Mark shipped</button>' +
+          '<div class="oacts" style="margin-top:14px">' +
             '<button class="btn sm ghost" type="button" data-mark="' + esc(o.id) + '" data-to="paid">Mark paid</button>' +
             '<button class="btn sm ghost" type="button" data-mark="' + esc(o.id) + '" data-to="cancelled">Cancel</button>' +
             '<span class="grow"></span>' +
@@ -273,6 +366,39 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
       if (!body) return;
       body.hidden = !body.hidden;
       openIds = body.hidden ? openIds.filter(function (x) { return x !== id; }) : openIds.concat([id]);
+      return;
+    }
+    if ((hit = t.closest('[data-ship]'))) {
+      var shid = hit.getAttribute('data-ship');
+      var shcar = (($('car-' + shid) || {}).value || '').trim();
+      var shtrk = (($('trk-' + shid) || {}).value || '').trim();
+      if (!shtrk) { note($('omsg'), 'Enter the tracking number first, then press Ship.', true); return; }
+      hit.disabled = true;
+      updateOrder({ id: shid, carrier: shcar, tracking: shtrk, status: 'shipped' });
+      return;
+    }
+    if ((hit = t.closest('[data-copy]'))) {
+      var cid = hit.getAttribute('data-copy');
+      var co = ORDERS.filter(function (x) { return x.id === cid; })[0];
+      if (!co) return;
+      var cmsg = shipMessage(co);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cmsg).then(function () {
+          note($('omsg'), 'Shipping message copied - paste it into WhatsApp or email.', false);
+        }, function () { window.prompt('Copy this message:', cmsg); });
+      } else window.prompt('Copy this message:', cmsg);
+      return;
+    }
+    if ((hit = t.closest('[data-mail]'))) {
+      var mid = hit.getAttribute('data-mail');
+      var mo = ORDERS.filter(function (x) { return x.id === mid; })[0];
+      if (!mo) return;
+      var to = (mo.customer && mo.customer.email) || mo.payer || '';
+      if (!to) { note($('omsg'), 'PayPal has not given us an email for this order yet.', true); return; }
+      var subj = 'Your LatexPapa order ' + mo.ref + ' has shipped';
+      window.location.href = 'mailto:' + encodeURIComponent(to) +
+        '?subject=' + encodeURIComponent(subj) +
+        '&body=' + encodeURIComponent(shipMessage(mo));
       return;
     }
     if ((hit = t.closest('[data-save]'))) {
@@ -429,7 +555,7 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
   $('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     var r = await api('/api/login', { method: 'POST', body: { password: $('pw').value } });
-    if (r.ok) { $('pw').value = ''; hide($('gateMsg')); loadOrders(); loadProducts(); }
+    if (r.ok) { $('pw').value = ''; hide($('gateMsg')); loadOrders(); loadProducts(); loadCoupons(); }
     else note($('gateMsg'), (r && r.error) || 'Sign in failed', true);
   });
   $('outBtn').addEventListener('click', async function () {
@@ -476,6 +602,97 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
     $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.remove('hot'); });
   });
   $('drop').addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) upload(e.dataTransfer.files); });
+
+  /* ---------------- discount codes ---------------- */
+  var COUPONS = [];
+
+  function couponDesc(c) {
+    var bits = [c.type === 'fixed' ? money(c.value) + ' off' : Number(c.value) + '% off'];
+    if (Number(c.min) > 0) bits.push('min ' + money(c.min));
+    if (Number(c.limit) > 0) bits.push(Number(c.used || 0) + ' of ' + c.limit + ' used');
+    else bits.push(Number(c.used || 0) + ' used');
+    if (c.expires) bits.push('until ' + c.expires);
+    return bits.join(' \u00b7 ');
+  }
+
+  function renderCoupons() {
+    var box = $('clist');
+    if (!COUPONS.length) {
+      box.innerHTML = '<p class="hint" style="padding:16px 0">No discount codes yet. Press <b>+ New code</b> to create one.</p>';
+      return;
+    }
+    box.innerHTML = COUPONS.map(function (c, i) {
+      var live = c.active !== false;
+      return '<div class="it" style="opacity:' + (live ? '1' : '.55') + '">' +
+        '<div class="meta"><b>' + esc(c.code) +
+        ' <span style="display:inline-block;font-size:.68rem;font-weight:700;letter-spacing:.05em;border-radius:100px;padding:2px 8px;margin-left:6px;background:' +
+        (live ? 'rgba(48,180,110,.16);color:#8ee6b4;border:1px solid rgba(48,180,110,.4)' : 'rgba(150,150,160,.14);color:#b9b9c4;border:1px solid rgba(150,150,160,.35)') +
+        '">' + (live ? 'LIVE' : 'OFF') + '</span></b>' +
+        '<span>' + esc(couponDesc(c)) + (c.note ? ' \u00b7 ' + esc(c.note) : '') + '</span></div>' +
+        '<button class="btn sm ghost" type="button" data-cedit="' + i + '">Edit</button></div>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('[data-cedit]'), function (b) {
+      b.addEventListener('click', function () { showCouponForm(COUPONS[Number(b.getAttribute('data-cedit'))]); });
+    });
+  }
+
+  function showCouponForm(c) {
+    $('corig').value = c ? c.code : '';
+    $('ccode').value = c ? c.code : '';
+    $('ctype').value = c && c.type === 'fixed' ? 'fixed' : 'percent';
+    $('cvalue').value = c ? c.value : '';
+    $('cmin').value = c && c.min ? c.min : '';
+    $('climit').value = c && c.limit ? c.limit : '';
+    $('cexpires').value = c && c.expires ? c.expires : '';
+    $('cnote').value = c && c.note ? c.note : '';
+    $('cactive').checked = !c || c.active !== false;
+    $('cdelBtn').style.display = c ? 'inline-flex' : 'none';
+    $('cform').style.display = 'block';
+    hide($('cmsg'));
+    window.scrollTo(0, 0);
+  }
+
+  function loadCoupons() {
+    return api('/api/coupons').then(function (r) {
+      if (!r || !r.ok) { return; }
+      COUPONS = r.coupons || [];
+      var live = COUPONS.filter(function (c) { return c.active !== false; }).length;
+      var pill = $('pillCoupons');
+      if (pill) { pill.textContent = String(live); pill.className = 'pill' + (live ? ' on' : ''); }
+      renderCoupons();
+    });
+  }
+
+  $('newCoupBtn').addEventListener('click', function () { showCouponForm(null); });
+  $('ccancelBtn').addEventListener('click', function () { $('cform').style.display = 'none'; hide($('cmsg')); });
+  $('cform').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var rec = {
+      code: $('ccode').value.trim(),
+      type: $('ctype').value,
+      value: Number($('cvalue').value || 0),
+      min: Number($('cmin').value || 0),
+      limit: Number($('climit').value || 0),
+      expires: $('cexpires').value || '',
+      note: $('cnote').value.trim(),
+      active: $('cactive').checked,
+    };
+    $('csaveBtn').disabled = true;
+    var r = await api('/api/coupons/save', { method: 'POST', body: rec });
+    $('csaveBtn').disabled = false;
+    if (r && r.ok) {
+      await loadCoupons();
+      showCouponForm(r.coupon);
+      note($('cmsg'), 'Saved \u2014 this code works on the checkout page now.', false);
+    } else note($('cmsg'), (r && r.error) || 'Could not save', true);
+  });
+  $('cdelBtn').addEventListener('click', async function () {
+    var code = $('corig').value || $('ccode').value;
+    if (!code || !confirm('Delete the code ' + code + '?')) return;
+    var r = await api('/api/coupons/delete', { method: 'POST', body: { code: code } });
+    if (r && r.ok) { $('cform').style.display = 'none'; await loadCoupons(); note($('cmsg'), 'Deleted.', false); }
+    else note($('cmsg'), (r && r.error) || 'Could not delete', true);
+  });
 
   fillCats();
   loadOrders();

@@ -5,6 +5,9 @@
   var KEY = 'lp_cart';
   var CAT = window.LP_CATALOG || {};
   var MAXQ = 20;
+  // Discount code applied on the checkout page. Display only: /api/pay/create
+  // re-checks the code server-side before anything is charged.
+  var applied = { code: '', discount: 0 };
 
   function money(v) { return '$' + Number(v || 0).toFixed(2); }
 
@@ -110,6 +113,8 @@
     if (root) root.innerHTML = html;
     var subs = document.querySelectorAll('[data-cart-subtotal]');
     for (var k = 0; k < subs.length; k++) subs[k].textContent = money(total);
+    var tots = document.querySelectorAll('[data-cart-total]');
+    for (var m = 0; m < tots.length; m++) tots[m].textContent = money(Math.max(0, total - applied.discount));
     if (empty) empty.style.display = arr.length ? 'none' : '';
     if (body) body.style.display = arr.length ? '' : 'none';
     return arr;
@@ -188,6 +193,59 @@
     }
     if (linesBox) linesBox.style.display = '';
 
+    /* ---- discount code ---- */
+    var cInput = document.getElementById('co-coupon');
+    var cApply = document.getElementById('co-coupon-apply');
+    var cMsg = document.getElementById('co-coupon-msg');
+    var cLine = document.getElementById('co-discount-line');
+    var cCode = document.getElementById('co-coupon-code');
+    var cAmt = document.getElementById('co-discount-amt');
+
+    function cNote(text, bad) {
+      if (!cMsg) return;
+      cMsg.textContent = text || '';
+      cMsg.style.color = bad ? 'var(--accent2)' : 'var(--muted)';
+    }
+    function paintCoupon() {
+      var cur = read(), sub = 0;
+      for (var i = 0; i < cur.length; i++) sub += Number((CAT[cur[i].slug] || {}).p || 0) * cur[i].qty;
+      var tots = document.querySelectorAll('[data-cart-total]');
+      for (var k = 0; k < tots.length; k++) tots[k].textContent = money(Math.max(0, sub - applied.discount));
+      if (cLine) cLine.style.display = applied.discount > 0 ? 'flex' : 'none';
+      if (cCode) cCode.textContent = applied.code;
+      if (cAmt) cAmt.textContent = '\u2212' + money(applied.discount);
+    }
+    function applyCoupon() {
+      var code = cInput ? String(cInput.value || '').trim() : '';
+      if (!code) { applied = { code: '', discount: 0 }; paintCoupon(); cNote('', false); return; }
+      if (cApply) { cApply.disabled = true; cApply.textContent = 'Checking\u2026'; }
+      fetch('/api/coupon/check', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: code, items: read() })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (cApply) { cApply.disabled = false; cApply.textContent = 'Apply'; }
+          if (j && j.ok) {
+            applied = { code: j.code, discount: Number(j.discount || 0) };
+            cNote('Code ' + j.code + ' applied \u2014 you save ' + money(j.discount) + '.', false);
+          } else {
+            applied = { code: '', discount: 0 };
+            cNote((j && j.error) || 'That code did not work.', true);
+          }
+          paintCoupon();
+        })
+        .catch(function () {
+          if (cApply) { cApply.disabled = false; cApply.textContent = 'Apply'; }
+          cNote('Network problem. Please try again.', true);
+        });
+    }
+    if (cApply) cApply.addEventListener('click', applyCoupon);
+    if (cInput) cInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); applyCoupon(); }
+    });
+    paintCoupon();
+
     fetch('/api/pay/ping').then(function (r) { return r.json(); }).then(function (j) {
       if (j && j.ready) {
         show('<p class="muted">You will be taken to PayPal to pay by card, Apple Pay, Google Pay or your PayPal balance. Free worldwide shipping is already included.</p>');
@@ -214,7 +272,7 @@
       payBtn.textContent = 'Opening PayPal…';
       var noteEl = document.getElementById('co-note');
       var note = noteEl && noteEl.value ? String(noteEl.value).slice(0, 1200) : '';
-      fetch('/api/pay/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items: read(), note: note }) })
+      fetch('/api/pay/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items: read(), note: note, coupon: applied.code || '' }) })
         .then(function (r) { return r.json(); })
         .then(function (j) {
           if (j && j.ok && j.approvalUrl) { window.location.href = j.approvalUrl; return; }

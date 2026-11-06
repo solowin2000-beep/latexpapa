@@ -1245,17 +1245,85 @@ writePage('/track-order/', layout({
   <section class="tight"><div class="wrap">
     <p class="eyebrow">Order status</p>
     <h1>Where is my order?</h1>
-    <p class="lead">Tracking numbers are emailed when your parcel leaves the studio, normally ${PRODUCTION} after we confirm your measurements.</p>
+    <p class="lead">Enter your order reference and the email you used at checkout. The reference starts with <b>LP-</b> and is in your confirmation email.</p>
+    <form id="trackForm" class="panel" style="margin-top:26px;max-width:560px">
+      <label class="meas" for="tRef" style="margin-top:0"><span>Order reference</span>
+        <input id="tRef" autocomplete="off" spellcheck="false" placeholder="LP-AB12CD" required
+          style="width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--ink);border-radius:12px;padding:12px 14px;font:inherit;font-size:.95rem;text-transform:uppercase">
+      </label>
+      <label class="meas" for="tEmail"><span>Email used at checkout</span>
+        <input id="tEmail" type="email" autocomplete="email" spellcheck="false" placeholder="you@example.com" required
+          style="width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--ink);border-radius:12px;padding:12px 14px;font:inherit;font-size:.95rem">
+      </label>
+      <button class="btn" type="submit" id="tBtn" style="margin-top:20px">Check my order</button>
+    </form>
+    <div id="tOut" style="max-width:680px;margin-top:22px"></div>
   </div></section>
   <section><div class="wrap"><div class="tiles">
     <div class="tile"><h3>Still in production</h3><p>Most pieces take ${PRODUCTION}. If you have not had a measurement check yet, we are waiting on your numbers.</p></div>
-    <div class="tile"><h3>Shipped</h3><p>Use the tracking link in your dispatch email. Transit is 7 business days to the USA, Japan and Korea, 10 to Europe, 10–15 elsewhere.</p></div>
+    <div class="tile"><h3>Shipped</h3><p>Your tracking number appears above as soon as the parcel leaves the studio. Transit is 7 business days to the USA, Japan and Korea, 10 to Europe, 10–15 elsewhere.</p></div>
     <div class="tile"><h3>No movement for a week</h3><p>Send us the tracking number and we will chase the carrier. Do not open a dispute first — it slows the carrier down.</p></div>
   </div>
   <div class="prose" style="margin-top:44px">
     <h2>Need help</h2>
     <p>Email <a href="mailto:${EMAIL}?subject=Order%20tracking">${EMAIL}</a>, or message us on WhatsApp or Telegram at ${WA_HANDLE} with your order number. We answer most messages within one working day.</p>
-  </div></div></section>`,
+  </div></div></section>
+  <script>
+  (function () {
+    var f = document.getElementById('trackForm');
+    if (!f) return;
+    var out = document.getElementById('tOut');
+    var btn = document.getElementById('tBtn');
+    var LABEL = { awaiting: 'Awaiting payment', paid: 'Paid - in production', shipped: 'Shipped', cancelled: 'Cancelled', refunded: 'Refunded' };
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function money(v) { return '$' + Number(v || 0).toFixed(2); }
+    function fmt(iso) { if (!iso) return ''; var d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleDateString(); }
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var ref = document.getElementById('tRef').value.trim();
+      var email = document.getElementById('tEmail').value.trim();
+      if (!ref || !email) return;
+      btn.disabled = true; btn.textContent = 'Checking...'; out.innerHTML = '';
+      fetch('/api/track?ref=' + encodeURIComponent(ref) + '&email=' + encodeURIComponent(email))
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          btn.disabled = false; btn.textContent = 'Check my order';
+          if (!j || !j.ok) { out.innerHTML = '<p class="paynotice">' + esc((j && j.error) || 'We could not find that order.') + '</p>'; return; }
+          var o = j.order;
+          var h = '<div class="panel">' +
+            '<div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:baseline">' +
+              '<div><b style="font-size:1.05rem">Order ' + esc(o.ref) + '</b>' +
+              '<div class="muted" style="font-size:.85rem">' + esc(LABEL[o.status] || o.status) + '</div></div>' +
+              '<div style="font-family:var(--serif);font-size:1.3rem">' + money(o.total) + '</div>' +
+            '</div>' +
+            '<table style="width:100%;border-collapse:collapse;margin-top:16px;font-size:.92rem"><tbody>';
+          (o.items || []).forEach(function (i) {
+            h += '<tr><td style="padding:7px 0;border-top:1px solid var(--line)">' + esc(i.name) +
+                 '</td><td style="padding:7px 0;border-top:1px solid var(--line);text-align:right">&times;' + i.qty + '</td></tr>';
+          });
+          h += '</tbody></table>';
+          if (o.status === 'shipped' && o.tracking) {
+            h += '<div style="margin-top:18px;padding:16px;border:1px solid var(--line2);border-radius:12px;background:var(--bg2)">' +
+                 '<div class="muted" style="font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;margin-bottom:8px">Tracking</div>' +
+                 '<div style="font-size:.95rem">' + esc(o.carrier || 'Courier') + ' &middot; <b>' + esc(o.tracking) + '</b></div>' +
+                 (o.trackingUrl ? '<a class="btn" style="margin-top:14px" href="' + esc(o.trackingUrl) + '" target="_blank" rel="noopener">Track my parcel</a>' : '') +
+                 (o.shippedAt ? '<div class="muted" style="font-size:.82rem;margin-top:10px">Dispatched ' + esc(fmt(o.shippedAt)) + '</div>' : '') +
+                 '</div>';
+          } else if (o.status === 'paid') {
+            h += '<p class="muted" style="margin-top:16px">We are making your piece now. Your tracking number appears here, and in an email, as soon as it leaves the studio.</p>';
+          } else if (o.status === 'awaiting') {
+            h += '<p class="muted" style="margin-top:16px">This order has not been paid yet.</p>';
+          }
+          h += '</div>';
+          out.innerHTML = h;
+        })
+        .catch(function () {
+          btn.disabled = false; btn.textContent = 'Check my order';
+          out.innerHTML = '<p class="paynotice">Network problem. Please try again.</p>';
+        });
+    });
+  })();
+  </script>`,
 }));
 
 /* ---------- PAGE_404 ---------- */
@@ -1316,8 +1384,24 @@ writePage('/checkout/', layout({
       <div id="co-lines">
         <div class="cart" data-cart-lines></div>
         <div class="cartfoot" style="border-top:0;padding-top:0">
-          <div><span class="muted">Total</span> <b class="sub" data-cart-subtotal>$0.00</b></div>
+          <div><span class="muted">Subtotal</span> <b class="sub" data-cart-subtotal>$0.00</b></div>
           <a class="muted" href="/cart/" style="font-size:.9rem">Edit cart</a>
+        </div>
+        <div style="margin-top:14px">
+          <div style="display:flex;gap:8px">
+            <input id="co-coupon" autocomplete="off" spellcheck="false" placeholder="Discount code" aria-label="Discount code"
+              style="flex:1;min-width:0;font:inherit;font-size:.95rem;padding:11px 14px;border-radius:10px;border:1px solid var(--line2);background:var(--bg2);color:var(--ink)">
+            <button class="btn sm ghost" type="button" id="co-coupon-apply" style="white-space:nowrap">Apply</button>
+          </div>
+          <p class="muted" id="co-coupon-msg" style="margin:8px 0 0;font-size:.85rem;min-height:1.2em"></p>
+        </div>
+        <div id="co-discount-line" style="display:none;justify-content:space-between;align-items:baseline;padding:10px 0;border-top:1px solid var(--line)">
+          <span class="muted">Discount <b id="co-coupon-code"></b></span>
+          <b class="sub" id="co-discount-amt">&minus;$0.00</b>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 0;border-top:1px solid var(--line)">
+          <span class="muted">Total</span>
+          <b class="sub" data-cart-total>$0.00</b>
         </div>
       </div>
       <label class="meas" for="co-note"><span>Your measurements or notes (optional)</span>
