@@ -297,11 +297,13 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
       return;
     }
     box.innerHTML = list.map(function (o) {
-      var items = (o.items || []).map(function (i) { return esc(i.name) + ' &times; ' + i.qty; }).join('<br>');
       var n = (o.items || []).reduce(function (s, i) { return s + Number(i.qty || 0); }, 0);
+      var plain = (o.items || []).map(function (i) { return i.name + ' \u00d7' + i.qty; }).join(' \u00b7 ');
+      var brief = plain ? (plain.length > 92 ? plain.slice(0, 90) + '\u2026' : plain) : 'no line items recorded';
       return '<article class="ord" data-id="' + esc(o.id) + '">' +
         '<div class="ord-top">' +
-          '<div><b>' + esc(o.ref) + '</b><span>' + esc(when(o.created)) + ' · ' + n + ' item' + (n === 1 ? '' : 's') + '</span></div>' +
+          '<div><b>' + esc(o.ref) + '</b><span>' + esc(when(o.created)) + ' · ' + n + ' item' + (n === 1 ? '' : 's') + '</span>' +
+            '<div style="font-size:.82rem;color:var(--ink2);margin-top:4px;line-height:1.35" title="' + esc(plain) + '">' + esc(brief) + '</div></div>' +
           '<div><b>' + esc((o.customer && o.customer.name) || '—') + '</b><span>' + esc((o.customer && o.customer.email) || o.payer || 'no email yet') + '</span></div>' +
           '<div class="ord-tot">' + money(o.total) + '</div>' +
           '<div><span class="badge ' + esc(o.status) + '">' + esc(LABEL[o.status] || o.status) + '</span></div>' +
@@ -309,9 +311,18 @@ table.lines td:last-child,table.lines th:last-child{text-align:right}
         '</div>' +
         '<div class="ord-body" id="ob-' + esc(o.id) + '" hidden>' +
           '<div><table class="lines"><thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead><tbody>' +
-            (o.items || []).map(function (i) {
-              return '<tr><td>' + esc(i.name) + '</td><td>' + i.qty + '</td><td>' + money(i.price) + '</td></tr>';
-            }).join('') +
+            ((o.items || []).length ? (o.items || []).map(function (i) {
+              var thumb = i.image
+                ? '<img src="' + esc(i.image) + '" alt="" width="46" height="46" style="border-radius:8px;object-fit:cover;border:1px solid var(--line);flex:none;display:block">'
+                : '<span style="display:block;width:46px;height:46px;border-radius:8px;border:1px solid var(--line);background:#101013;flex:none"></span>';
+              var nm = i.link
+                ? '<a href="' + esc(i.link) + '" target="_blank" rel="noopener" style="color:var(--ink);text-decoration:underline;text-underline-offset:2px">' + esc(i.name) + '</a>'
+                : '<b style="font-weight:500">' + esc(i.name) + '</b>';
+              return '<tr><td><div style="display:flex;gap:12px;align-items:center;min-width:0">' + thumb +
+                '<div style="min-width:0">' + nm +
+                (i.sku ? '<div style="font-size:.74rem;color:var(--muted2);word-break:break-all">' + esc(i.sku) + '</div>' : '') +
+                '</div></div></td><td style="white-space:nowrap">' + i.qty + '</td><td style="white-space:nowrap">' + money(i.price) + '</td></tr>';
+            }).join('') : '<tr><td colspan="3" style="color:var(--muted)"><i>This order has no line items recorded.</i></td></tr>') +
             (o.coupon ? '<tr><td>Discount <b>' + esc(o.coupon) + '</b></td><td></td><td>&minus;' + money(o.discount) + '</td></tr>' : '') +
             '<tr><td><b>Total</b></td><td></td><td><b>' + money(o.total) + ' ' + esc(o.currency) + '</b></td></tr>' +
           '</tbody></table></div>' +

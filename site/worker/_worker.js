@@ -585,18 +585,22 @@ async function handleApi(request, env, url) {
     const fullPu = (Array.isArray(full.purchase_units) && full.purchase_units[0]) || pu;
     const cust = customerOf(full);
     const ship = shippingOf(full);
-    const rec = await upsertOrder(env, id, {
+    const paidItems = (Array.isArray(fullPu.items) && fullPu.items.length ? fullPu.items : (Array.isArray(pu.items) ? pu.items : [])).map(i => ({
+      sku: i.sku, name: i.name, qty: Number(i.quantity || 1),
+      price: Number((i.unit_amount && i.unit_amount.value) || 0),
+    }));
+    const patch = {
       status: 'paid',
       captureId: (caps && caps.id) || '',
       total: Number(amount.value || 0), currency: amount.currency_code || CURRENCY,
       payer: cust.email || (cap.payer && (cap.payer.email_address || cap.payer.payer_id)) || '',
       customer: cust, shipping: ship,
       paidAt: new Date().toISOString(),
-      items: (Array.isArray(fullPu.items) && fullPu.items.length ? fullPu.items : (Array.isArray(pu.items) ? pu.items : [])).map(i => ({
-        sku: i.sku, name: i.name, qty: Number(i.quantity || 1),
-        price: Number((i.unit_amount && i.unit_amount.value) || 0),
-      })),
-    }, 'payment captured');
+    };
+    // PayPal sometimes echoes the order back without line items. If so, keep
+    // the lines we saved when checkout started rather than wiping them.
+    if (paidItems.length) patch.items = paidItems;
+    const rec = await upsertOrder(env, id, patch, 'payment captured');
     // Count a limited-use code only once the money has actually cleared.
     if (rec && rec.coupon && !rec.couponCounted) {
       try {
@@ -657,7 +661,20 @@ async function handleApi(request, env, url) {
 /* ---------- order dashboard (admin only) ---------- */
   if (path === '/api/orders' && method === 'GET') {
     if (!(await isAuthed(request, env))) return json({ ok: false, error: 'Not signed in.' }, 401);
-    const orders = (await readOrders(env)).map(publicOrder);
+    // Enrich every line with its photo and a link to the live product page so
+    // the dashboard shows what was actually bought, not just a total.
+    const orders = (await readOrders(env)).map(publicOrder).map(o => {
+      o.items = (o.items || []).map(it => {
+        const c = CATALOG[it.sku];
+        return {
+          sku: it.sku, qty: it.qty, price: it.price,
+          name: it.name || (c && c.n) || it.sku,
+          image: (c && c.i) || '',
+          link: c ? '/product/' + it.sku + '/' : '',
+        };
+      });
+      return o;
+    });
     return json({ ok: true, orders, paypal: paypalReady(env), env: paypalEnv(env), notify: notifyChannel(env), notifyLabel: notifyLabel(env) });
   }
 

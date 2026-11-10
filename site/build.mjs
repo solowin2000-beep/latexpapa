@@ -131,11 +131,11 @@ function uniqueDesc(p, c, i) {
 /* ---------- shared chrome ---------- */
 const NAV = [
   ['/latex-catsuits/', 'Catsuits'],
-  ['/latex-hoods-masks/', 'Hoods & Masks'],
   ['/latex-dresses/', 'Dresses'],
-  ['/latex-gloves/', 'Gloves'],
+  ['/latex-lingerie/', 'Lingerie'],
+  ['/latex-cosplay/', 'Cosplay'],
+  ['/latex-hoods-masks/', 'Hoods & Masks'],
   ['/latex-stockings-socks/', 'Stockings'],
-  ['/latex-accessories/', 'Accessories'],
   ['/shop/', 'All ' + TOTAL],
   ['/size-guide/', 'Size & Fit'],
 ];
@@ -1570,7 +1570,7 @@ if (fs.existsSync(WORKER_DIR)) {
   // total from these numbers, so a tampered browser payload can never change
   // what is actually charged.
   const CATALOG_WORKER = JSON.stringify(Object.fromEntries(
-    products.filter(p => p.price).map(p => [p.slug, { p: Number(p.price), n: p.name }])
+    products.filter(p => p.price).map(p => [p.slug, { p: Number(p.price), n: p.name, i: p.images && p.images.length ? '/img/' + p.id + '/01.webp' : '' }])
   ));
   for (const name of ['_worker.js', '_routes.json']) {
     const src = path.join(WORKER_DIR, name);
