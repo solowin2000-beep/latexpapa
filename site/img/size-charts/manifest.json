@@ -1,0 +1,32 @@
+{
+  "women": {
+    "file": "/img/size-charts/women.webp",
+    "width": 1600,
+    "height": 1384,
+    "title": "Women's clothing size chart (cm / inches)"
+  },
+  "men": {
+    "file": "/img/size-charts/men.webp",
+    "width": 1600,
+    "height": 1384,
+    "title": "Men's clothing size chart (cm / inches)"
+  },
+  "gloves": {
+    "file": "/img/size-charts/gloves.webp",
+    "width": 1600,
+    "height": 440,
+    "title": "Glove size chart (cm)"
+  },
+  "mask": {
+    "file": "/img/size-charts/mask.webp",
+    "width": 1600,
+    "height": 482,
+    "title": "Hood and mask size chart (cm / inches)"
+  },
+  "socks": {
+    "file": "/img/size-charts/socks.webp",
+    "width": 1600,
+    "height": 492,
+    "title": "Stocking and sock size chart"
+  }
+}

@@ -4,6 +4,13 @@ import path from 'node:path';
 const SITE = 'https://www.latexpapa.com';
 const OUT = path.resolve('outputs/site');
 const IMG_DIR = path.resolve('work/images/_all');
+// SIZE CHARTS — rendered from data by work/render-size-charts.mjs into site/img/size-charts.
+// Kept as files (not rendered at build time) so the shop build stays dependency-free.
+const SIZE_CHART_DIR = path.resolve('site/img/size-charts');
+const sizeCharts = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(SIZE_CHART_DIR, 'manifest.json'), 'utf8')); }
+  catch { return {}; }
+})();
 // CLEAN_OUTPUT — always build from scratch so renamed/removed pages do not linger
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
@@ -663,7 +670,7 @@ writePage('/size-guide/', layout({
         ["gloves","Glove size chart","Wrist, palm, bicep, top-of-middle-finger-to-wrist and total length, in Small, Medium and Large."],
         ["mask","Hood and mask size chart","Head vertical circumference, head horizontal circumference and neck circumference, XS to XXL."],
         ["socks","Stocking and sock size chart","Calf, ankle, length and foot size from XS to 4XL, with UK and EU shoe equivalents."]
-      ].map(([k,t,d]) => `<figure class="panel" style="margin:0"><img src="/img/size-charts/${k}.webp" alt="${t}" loading="lazy" width="1600" height="900" style="border-radius:9px;border:1px solid var(--line)"><figcaption style="margin-top:14px"><strong style="color:var(--ink)">${t}</strong><span class="muted" style="display:block;font-size:.88rem;margin-top:4px">${d}</span></figcaption></figure>`).join('')}
+      ].map(([k,t,d]) => { const m = sizeCharts[k] || { width: 1600, height: 900 }; return `<figure class="panel" style="margin:0"><img src="/img/size-charts/${k}.webp" alt="${t}" loading="lazy" width="${m.width}" height="${m.height}" style="border-radius:9px;border:1px solid var(--line)"><figcaption style="margin-top:14px"><strong style="color:var(--ink)">${t}</strong><span class="muted" style="display:block;font-size:.88rem;margin-top:4px">${d}</span></figcaption></figure>`; }).join('')}
     </div>
   </div></section>
 
@@ -1458,6 +1465,19 @@ for (const [from, to] of [
 ]) {
   const s = path.resolve('site/assets', from);
   if (fs.existsSync(s)) fs.copyFileSync(s, path.join(OUT, to));
+}
+
+/* ---------- size charts ---------- */
+if (fs.existsSync(SIZE_CHART_DIR)) {
+  const chartOut = path.join(OUT, 'img', 'size-charts');
+  fs.mkdirSync(chartOut, { recursive: true });
+  let n = 0;
+  for (const f of fs.readdirSync(SIZE_CHART_DIR)) {
+    if (!/\.webp$/.test(f)) continue;
+    fs.copyFileSync(path.join(SIZE_CHART_DIR, f), path.join(chartOut, f));
+    n++;
+  }
+  console.log('size charts staged:', n);
 }
 
 const today = new Date().toISOString().slice(0, 10);
