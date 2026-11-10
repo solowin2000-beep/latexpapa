@@ -1529,7 +1529,11 @@ User-agent: meta-externalagent
 Allow: /
 
 Sitemap: ${SITE}/sitemap.xml
-`, 'utf8');
+`
+  // Cloudflare rewrites visible e-mail addresses into /cdn-cgi/l/email-protection
+  // links; crawlers follow them, get a 404, and report it in Search Console.
+  .replace(/^Allow: \/$/gm, 'Allow: /\nDisallow: /cdn-cgi/'),
+  'utf8');
 
 /* ---------- IndexNow (Bing / Yandex / Seznam / Naver) ---------- */
 // The key file must live at the site root and contain the key verbatim.
@@ -1573,6 +1577,63 @@ ${products.filter(p => p.price).map(p => `- [${p.name}](${SITE}/product/${p.slug
 - [Contact](${SITE}/contact/)
 - [Wholesale](${SITE}/wholesale/)
 `, 'utf8');
+
+/* ---------- llms-full.txt (GEO: one-file full reference for answer engines) ---------- */
+// llms.txt says what exists; llms-full.txt carries the readable text of the pages an
+// answer engine is most likely to quote, so it does not have to fetch all of them.
+const LLMS_FULL_PAGES = [
+  ['/', 'LatexPapa — made-to-measure latex clothing'],
+  ['/about/', 'About the studio'],
+  ['/measure-guide/', 'How to measure for latex clothing'],
+  ['/size-calculator/', 'Latex size calculator'],
+  ['/thickness-guide/', 'Latex thickness guide'],
+  ['/size-guide/', 'Size guide'],
+  ['/latex-care/', 'Latex care'],
+  ['/custom-latex/', 'Custom latex design'],
+  ['/shipping-returns/', 'Shipping and returns'],
+  ['/wholesale/', 'Wholesale'],
+  ['/faq/', 'FAQ'],
+  ['/contact/', 'Contact'],
+];
+const htmlToText = (html) => String(html)
+  .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+  .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  .replace(/<\/(p|div|li|h[1-6]|tr|section|article|blockquote)>/gi, '\n')
+  .replace(/<br\s*\/?>/gi, '\n')
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&nbsp;/g, ' ')
+  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&#39;|&apos;/g, String.fromCharCode(39))
+  .replace(/&quot;|&ldquo;|&rdquo;/g, String.fromCharCode(34))
+  .replace(/&mdash;/g, '—').replace(/&ndash;/g, '–').replace(/&minus;/g, '-').replace(/&rarr;/g, '->')
+  .replace(/[ \t]+/g, ' ')
+  .replace(/\n\s*\n\s*\n+/g, '\n\n')
+  .trim();
+
+const llmsFull = [`# ${BRAND} — full reference
+
+Source: ${SITE} — Last updated ${today}.
+
+Made-to-measure latex clothing studio. Every garment is handmade from 100% natural latex sheet (0.25mm–1.00mm) and cut to the customer's own body measurements. Around ${TOTAL} designs across catsuits, dresses, hoods, masks, gloves, stockings, skirts, lingerie and accessories. Production ${PRODUCTION} from measurement confirmation. ${SHIPPING} shipping, tracked, plain unmarked packaging.
+
+Contact: ${EMAIL}. WhatsApp ${WA_HANDLE} (${WA_URL}). Telegram ${TELEGRAM_HANDLE} (${TELEGRAM_URL}). Operating entity: ${LEGAL}, Hong Kong SAR, China.
+
+Prices are in USD. Made-to-measure pieces are not returnable; defects are remade or refunded if reported within 48 hours of delivery.`];
+
+for (const [u, label] of LLMS_FULL_PAGES) {
+  const rel = u === '/' ? 'index.html' : path.join(u.replace(/^\//, '').replace(/\/$/, ''), 'index.html');
+  const file = path.join(OUT, rel);
+  if (!fs.existsSync(file)) continue;
+  const html = fs.readFileSync(file, 'utf8');
+  const main = /<main[^>]*>([\s\S]*?)<\/main>/i.exec(html);
+  const text = htmlToText(main ? main[1] : html);
+  if (text) llmsFull.push(`## ${label} (${SITE}${u})\n\n${text}`);
+}
+
+llmsFull.push(`## All products\n\n${products.filter((p) => p.price).map((p) => `- ${p.name} — ${money(p.price)} — ${SITE}/product/${p.slug}/`).join('\n')}`);
+llmsFull.push(`## Attribution\n\n${BRAND}, ${SITE}. Free to cite with a link to the page used.`);
+fs.writeFileSync(path.join(OUT, 'llms-full.txt'), llmsFull.join('\n\n') + '\n', 'utf8');
+console.log('llms-full.txt written:', llmsFull.length, 'sections');
 
 
 /* ---------- admin panel + pages worker ---------- */
