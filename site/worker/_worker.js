@@ -446,6 +446,9 @@ function productPage(p, origin) {
     '<div><p class="eyebrow">' + esc(cat) + ' &middot; Made to measure</p><h1>' + esc(p.name) + '</h1>' +
     '<div class="pricebox"><span class="p">' + money(p.price) + '</span>' +
     (p.wasPrice && Number(p.wasPrice) > Number(p.price) ? '<span class="w">' + money(p.wasPrice) + '</span>' : '') + '</div>' +
+    '<p style="margin:12px 0 0;font-size:.88rem;line-height:1.5;border-left:2px solid var(--accent);padding-left:11px">' +
+      '<b>Made to measure &mdash; custom pieces are non-returnable.</b><br>' +
+      '<span class="muted">If a piece arrives faulty, tell us within 48 hours and we remake it or refund you.</span></p>' +
     '<ul class="bullets"><li>Made to your exact measurements</li><li>100% natural latex, 0.25mm&ndash;1.00mm</li><li>Any colour, including metallic (+20%)</li><li>Free worldwide shipping</li><li>Production time about 2 weeks</li></ul>' +
     '<div class="hero-actions"><a class="btn" href="/contact/">Order this piece</a><a class="btn ghost" href="/measure-guide/">How to measure</a></div>' +
     '</div></div>' +

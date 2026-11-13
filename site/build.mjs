@@ -152,7 +152,7 @@ function header(active) {
     const label = h === '/shop/' ? 'All <span data-total>' + TOTAL + '</span>' : t;
     return `<a href="${h}"${h === active ? ' aria-current="page"' : ''}>${label}</a>`;
   }).join('');
-  return `<div class="note"><b>${SHIPPING}</b> · Made to measure in ${PRODUCTION} · 100% natural latex · Questions? <a href="/contact/">Talk to us</a></div>
+  return `<div class="note"><b>${SHIPPING}</b> · Made to measure in ${PRODUCTION} · <b>Custom pieces are non-returnable unless faulty</b> · 100% natural latex · <a href="/contact/">Talk to us</a></div>
 <header class="top"><div class="wrap">
   <a class="logo" href="/">Latex<span>Papa</span></a>
   <button class="navbtn" type="button" id="navbtn" aria-expanded="false" aria-controls="primary-nav" aria-label="Open menu"><span class="navbtn-box"><span></span><span></span><span></span></span></button>
@@ -573,6 +573,10 @@ for (const p of products) {
         <div class="pricebox">
           <span class="p">${p.price ? money(p.price) : 'Price on request'}</span>${other}
         </div>
+        <p style="margin:12px 0 0;font-size:.88rem;line-height:1.5;border-left:2px solid var(--accent);padding-left:11px">
+          <b>Made to measure — custom pieces are non-returnable.</b><br>
+          <span class="muted">If a piece arrives faulty, tell us within 48 hours and we remake it or refund you.</span>
+        </p>
         <p class="lead" style="font-size:1rem">${descPlain ? esc2(descPlain.slice(0, 260)) : 'Handmade to your measurements in 100% natural latex.'}</p>
         ${sizes.length ? `<div class="opt"><div class="lab">Size</div><div class="chips">${sizes.map((s, i) => `<button class="chip${p.defaults.Size === s ? ' on' : ''}" type="button">${esc2(s)}</button>`).join('')}</div></div>` : ''}
         ${colors.length ? `<div class="opt"><div class="lab">Colour <span class="muted" style="text-transform:none;letter-spacing:0">— any colour available, metallic +20%</span></div><div class="chips">${colors.map(s => `<button class="chip${p.defaults.Color === s ? ' on' : ''}" type="button">${esc2(s)}</button>`).join('')}</div></div>` : ''}
@@ -1374,6 +1378,10 @@ writePage('/cart/', layout({
       <a class="btn" id="cart-go" href="/checkout/">Proceed to checkout</a>
     </div>
     <p class="muted" style="font-size:.84rem;margin-top:20px">Colour, thickness and hardware are agreed by email after checkout. Metallic colours add 20%.</p>
+    <p style="font-size:.86rem;margin:18px 0 0;line-height:1.5;border-left:2px solid var(--accent);padding-left:11px">
+      <b>Please note:</b> everything here is cut to your own measurements, so <b>custom pieces are non-returnable</b>.
+      <span class="muted">If something arrives faulty, tell us within 48 hours and we remake it or refund you.</span>
+    </p>
   </div>
 </div>`,
 }), 'utf8');
@@ -1426,6 +1434,10 @@ writePage('/checkout/', layout({
       </ol>
       <button class="btn block" type="button" id="co-pay" style="margin-top:18px">Pay with PayPal</button>
       <p class="muted" style="font-size:.82rem;margin:12px 0 0;text-align:center">Card · Apple Pay · Google Pay · PayPal</p>
+      <p style="font-size:.82rem;margin:14px 0 0;line-height:1.5;text-align:center;border-top:1px solid var(--line);padding-top:12px">
+        By paying you agree that <b>custom made-to-measure pieces are non-returnable</b>.<br>
+        <span class="muted">Faults reported within 48 hours are remade or refunded.</span>
+      </p>
       <p class="muted" style="font-size:.82rem;margin:14px 0 0">Questions first? <a href="/contact/">Talk to us</a> or email ${e(EMAIL)}.</p>
     </aside>
   </div>
