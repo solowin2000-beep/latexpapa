@@ -463,7 +463,14 @@ for (const c of categories) {
   const list = byCat[c.slug];
   const hero = list.find(p => pic(p, 0));
   writePage(`/${c.slug}/`, layout({
-    title: `${c.title} — Made to Measure | ${BRAND}`,
+    title: (() => {
+      // Same 60-character guard as the product pages: drop "— Made to Measure",
+      // then the brand, rather than letting Google cut the category name mid-word.
+      const full = `${c.title} — Made to Measure | ${BRAND}`;
+      if (full.length <= 60) return full;
+      const withBrand = `${c.title} | ${BRAND}`;
+      return withBrand.length <= 60 ? withBrand : c.title;
+    })(),
     description: c.desc,
     url: `/${c.slug}/`, active: `/${c.slug}/`,
     ogImage: hero ? pic(hero, 0) : undefined,
@@ -548,9 +555,12 @@ for (const p of products) {
   ];
   writePage(`/product/${p.slug}/`, layout({
     title: (() => {
-      // Google 大约只显示 60-65 个字符；名称太长的商品去掉中间那段，保住商品名和品牌。
+      // Google 大约只显示 60-65 个字符。名称太长时先去掉中间那句，再去掉品牌尾巴 ——
+      // 宁可少一个品牌后缀，也不要让商品名本身在搜索结果里被截断。
       const full = `${p.name} — Made to Measure | ${BRAND}`;
-      return full.length <= 65 ? full : `${p.name} | ${BRAND}`;
+      if (full.length <= 65) return full;
+      const withBrand = `${p.name} | ${BRAND}`;
+      return withBrand.length <= 62 ? withBrand : p.name;
     })(),
     description: metaDesc,
     url: `/product/${p.slug}/`, active: `/${p.category}/`,
@@ -1183,7 +1193,7 @@ writePage('/custom-latex/', layout({
 
 // CARE
 writePage('/latex-care/', layout({
-  title: `How to Care for Latex Clothing — Washing, Storage, Shine | ${BRAND}`,
+  title: `Latex Care — Washing, Storage & Shine | ${BRAND}`,
   description: 'How to put on, wash, dry, store and polish natural latex clothing so it lasts: talc, silicone shiner, what to avoid, and how to fix a dull surface.',
   url: '/latex-care/', active: null,
   jsonLd: [ORG, crumbs([{ name: 'Home', url: '/' }, { name: 'Latex care', url: '/latex-care/' }]), {
@@ -1220,7 +1230,7 @@ writePage('/latex-care/', layout({
 
 // WHOLESALE
 writePage('/wholesale/', layout({
-  title: `Wholesale & Bulk Latex Orders for Studios and Retailers | ${BRAND}`,
+  title: `Wholesale & Bulk Latex for Studios & Retailers | ${BRAND}`,
   description: 'Bulk and resale latex orders for photographers, performers, retailers and studios. Custom colourways, repeat runs and consolidated shipping.',
   url: '/wholesale/', active: null,
   jsonLd: [ORG, crumbs([{ name: 'Home', url: '/' }, { name: 'Wholesale', url: '/wholesale/' }])],
